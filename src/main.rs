@@ -1,6 +1,6 @@
 extern crate qwiic_lcd_rs;
 
-use i2c_16x2::*;
+use qwiic_lcd_rs::*;
 use std::thread;
 use std::time::Duration;
 

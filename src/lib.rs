@@ -24,7 +24,7 @@ use i2cdev::linux::{LinuxI2CDevice, LinuxI2CError};
 // commands
 #[derive(Copy, Clone)]
 pub enum Command {
-    ClearDisplay = 0x2D,
+    ClearDisplay = 0x01,
     ReturnHome = 0x02,
     EntryModeSet = 0x04,
     DisplayControl = 0x08,

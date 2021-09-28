@@ -24,7 +24,7 @@ use i2cdev::linux::{LinuxI2CDevice, LinuxI2CError};
 // commands
 #[derive(Copy, Clone)]
 pub enum Command {
-    ClearDisplay = 0x01,
+    ClearDisplay = 0x2D,
     ReturnHome = 0x02,
     EntryModeSet = 0x04,
     DisplayControl = 0x08,
@@ -178,10 +178,10 @@ impl Screen {
     }
 
     pub fn init(&mut self) -> ScreenResult {
-        self.write(0x03, WriteMode::Normal)?;
-        self.write(0x03, WriteMode::Normal)?;
-        self.write(0x03, WriteMode::Normal)?;
-        self.write(0x02, WriteMode::Normal)?;
+        self.write(0x72, WriteMode::Normal)?;
+        self.write(0x72, WriteMode::Normal)?;
+        self.write(0x72, WriteMode::Normal)?;
+        self.write(0x72, WriteMode::Normal)?;
 
         self.install_function_set()?;
 

@@ -1,5 +1,5 @@
 [package]
-name = "i2c-16x2"
+name = "qwiic-lcd-rs"
 version = "0.1.0"
 authors = ["Romain Porte <microjoe@microjoe.org>"]
 

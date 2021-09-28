@@ -1,16 +1,17 @@
 # QwiicLCD I2C screen library for Rust
 
-Still WIP, inspired from [a Python snippet from Denis Pleic](https://gist.github.com/DenisFromHR/cc863375a6e19dce359d).
-Datasheet used for reference [can be found here](https://www.sparkfun.com/datasheets/LCD/ADM1602K-NSW-FBS-3.3v.pdf).
+References used:
 
 https://github.com/sparkfun/Qwiic_SerLCD_Py/blob/main/qwiic_serlcd.py
 
 ## Description
 
-This library aims at controlling 16x2 cheap screens using I2C from Linux. It
+This library aims at controlling QwiicLCD screens using I2C from Linux. It
 primary target is ARM devices such as RaspberryPi or FriendlyARM's NanoPi Neo.
 It should nonetheless work on other Linux distributions with access to an I2C
 bus.
+
+Currently I only have access to the 20x4 LCD for testing purposes. If you have issues with other LCD sizes please submit an issue or a pull request.
 
 ## Building for Raspberry Pi
 

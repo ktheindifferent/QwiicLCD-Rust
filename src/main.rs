@@ -16,18 +16,18 @@ fn main() {
 
     println!("off");
     screen.set_backlight(false).unwrap();
-    thread::sleep(Duration::from_secs(1));
+    thread::sleep(Duration::from_secs(5));
     
     println!("on");
     screen.set_backlight(true).unwrap();
-    thread::sleep(Duration::from_secs(1));
+    thread::sleep(Duration::from_secs(5));
     
     println!("show some text");
     screen.display("Hello Rust!", 1, 0).unwrap();
     screen.display("Fuck yeah :)", 2, 0).unwrap();
     thread::sleep(Duration::from_secs(5));
     
-    println!("off");
-    screen.set_backlight(false).unwrap();
-    thread::sleep(Duration::from_secs(1));
+    // println!("off");
+    // screen.set_backlight(false).unwrap();
+    // thread::sleep(Duration::from_secs(1));
 }

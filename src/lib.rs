@@ -178,10 +178,10 @@ impl Screen {
     }
 
     pub fn init(&mut self) -> ScreenResult {
-        self.write(0x72, WriteMode::Normal)?;
-        self.write(0x72, WriteMode::Normal)?;
-        self.write(0x72, WriteMode::Normal)?;
-        self.write(0x72, WriteMode::Normal)?;
+        self.write(0x03, WriteMode::Normal)?;
+        self.write(0x03, WriteMode::Normal)?;
+        self.write(0x03, WriteMode::Normal)?;
+        self.write(0x02, WriteMode::Normal)?;
 
         self.install_function_set()?;
 

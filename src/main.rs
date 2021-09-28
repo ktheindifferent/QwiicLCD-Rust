@@ -9,10 +9,10 @@ use std::time::Duration;
 
 fn main() {
     let config = ScreenConfig::default();
-    let mut screen = Screen::new(config, "/dev/i2c-1", 0x3f).expect("Could not init device");
+    let mut screen = Screen::new(config, "/dev/i2c-1", 0x72).expect("Could not init device");
 
-    // println!("init");
-    // screen.init().unwrap();
+    println!("init");
+    screen.init().unwrap();
 
     println!("off");
     screen.set_backlight(false).unwrap();

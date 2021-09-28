@@ -1,7 +1,9 @@
-# 16x2 I2C screen library for Rust
+# QwiicLCD I2C screen library for Rust
 
 Still WIP, inspired from [a Python snippet from Denis Pleic](https://gist.github.com/DenisFromHR/cc863375a6e19dce359d).
 Datasheet used for reference [can be found here](https://www.sparkfun.com/datasheets/LCD/ADM1602K-NSW-FBS-3.3v.pdf).
+
+https://github.com/sparkfun/Qwiic_SerLCD_Py/blob/main/qwiic_serlcd.py
 
 ## Description
 

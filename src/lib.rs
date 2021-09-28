@@ -24,12 +24,12 @@ use i2cdev::linux::{LinuxI2CDevice, LinuxI2CError};
 // commands
 #[derive(Copy, Clone)]
 pub enum Command {
-    ClearDisplay = 0x01,
+    ClearDisplay = 0x2D,
     ReturnHome = 0x02,
     EntryModeSet = 0x04,
     DisplayControl = 0x08,
     CursorShift = 0x10,
-    FunctionSet = 0x20,
+    // FunctionSet = 0x20,
     SetCGRamAddr = 0x40,
     SetDDRamAddr = 0x80,
 }
@@ -183,7 +183,7 @@ impl Screen {
         self.write(0x03, WriteMode::Normal)?;
         self.write(0x02, WriteMode::Normal)?;
 
-        self.install_function_set()?;
+        // self.install_function_set()?;
 
         self.apply_display_state()?;
         self.clear()?;
@@ -197,15 +197,15 @@ impl Screen {
 
     // High-order commands mapped to methods
 
-    pub fn install_function_set(&mut self) -> ScreenResult {
-        let mut flags = 0;
+    // pub fn install_function_set(&mut self) -> ScreenResult {
+    //     let mut flags = 0;
 
-        flags = flags | (self.config.bit_mode as u8);
-        flags = flags | (self.config.line_count as u8);
-        flags = flags | (self.config.matrix_size as u8);
+    //     flags = flags | (self.config.bit_mode as u8);
+    //     flags = flags | (self.config.line_count as u8);
+    //     flags = flags | (self.config.matrix_size as u8);
 
-        self.command(Command::FunctionSet, flags)
-    }
+    //     self.command(Command::FunctionSet, flags)
+    // }
 
     pub fn clear(&mut self) -> ScreenResult {
         self.command(Command::ClearDisplay, 0)

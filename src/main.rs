@@ -1,4 +1,4 @@
-extern crate i2c_16x2;
+extern crate qwiic_lcd_rs;
 
 use i2c_16x2::*;
 use std::thread;

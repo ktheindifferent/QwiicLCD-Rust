@@ -1,3 +1,13 @@
+
+
+
+
+
+
+
+
+
+
 // Copyright 2017 Romain Porte
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -32,7 +42,6 @@ pub enum Command {
     FunctionSet = 0x20,
     SetCGRamAddr = 0x40,
     SetDDRamAddr = 0x80,
-    SettingCommand = 0x7C
 }
 
 // Display entry mode
@@ -114,7 +123,8 @@ pub enum LineCount {
 #[derive(Copy, Clone)]
 pub enum MatrixSize {
     M5x8 = 0x00,
-    M5x10 = 0x04
+    M5x10 = 0x40,
+    M10x16 = 0x04,
 }
 
 pub struct ScreenConfig {
@@ -291,9 +301,7 @@ impl Screen {
     // to lower level of abstraction
 
     pub fn command(&mut self, command: Command, data: u8) -> ScreenResult {
-        self.write((command as u8), WriteMode::Normal)
-
-
+        self.write((command as u8) | data, WriteMode::Normal)
     }
 
     pub fn write_char(&mut self, ch: u8) -> ScreenResult {
@@ -312,7 +320,7 @@ impl Screen {
                 self.write_four_bytes((mode as u8) | (command & 0xF0))?;
                 self.write_four_bytes((mode as u8) | ((command << 4) & 0xF0))?;
                 Ok(())
-            },
+            }
             BitMode::B8 => {
                 self.write_screen((mode as u8) | command)?; // Not sure here for mode
                 Ok(())
@@ -333,7 +341,7 @@ impl Screen {
     }
 
     pub fn write_screen(&mut self, command: u8) -> ScreenResult {
-        self.write_cmd((Command::SettingCommand as u8) | command)
+        self.write_cmd(command | (Backlight::On as u8))
     }
 
     pub fn write_cmd(&mut self, command: u8) -> ScreenResult {

@@ -14,6 +14,10 @@ fn main() {
     println!("init");
     screen.init().unwrap();
 
+
+    println!("clear");
+    screen.clear().unwrap();
+
     // println!("off");
     // screen.set_backlight(false).unwrap();
     // thread::sleep(Duration::from_secs(5));

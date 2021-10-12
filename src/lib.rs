@@ -32,7 +32,8 @@ pub enum Command {
     FunctionSet = 0x20,
     SetCGRamAddr = 0x40,
     SetDDRamAddr = 0x80,
-    SettingCommand = 0x7C
+    SettingCommand = 0x7C,
+    SpecialCommand = 254
 }
 
 // Display entry mode
@@ -218,7 +219,7 @@ impl Screen {
     }
 
     pub fn home(&mut self) -> ScreenResult {
-        self.command(Command::ReturnHome, 0)
+        self.write_special_cmd(Command::ReturnHome, 0)
     }
 
     // pub fn set_entry_mode(&mut self, entry_mode: EntryMode) -> ScreenResult {
@@ -234,11 +235,11 @@ impl Screen {
         let row_offsets: Vec<usize> = vec![0x00, 0x40, 0x14, 0x54];
 
     
-        // row = 0.iter().max().unwrap();
-        // row = row.iter().min().unwrap();
+        row = row_offsets.iter().max().unwrap();
+        row = row_offsets.iter().min().unwrap();
         let command = ((Command::SetDDRamAddr as u8) | ((col + row_offsets[row]) as u8));
 
-        self.write_cmd(command)
+        self.write_special_cmd(command)
     }
 
     pub fn set_cursor(&mut self, activated: bool) -> ScreenResult {
@@ -360,7 +361,11 @@ impl Screen {
     pub fn write_cmd(&mut self, command: u8) -> ScreenResult {
         self.dev.smbus_write_byte_data((Command::SettingCommand as u8), command)?;
         thread::sleep(Duration::new(0, 10_000));
-
+        Ok(())
+    }
+    pub fn write_special_cmd(&mut self, command: u8) -> ScreenResult {
+        self.dev.smbus_write_byte_data((Command::SpecialCommand as u8), command)?;
+        thread::sleep(Duration::new(0, 10_000));
         Ok(())
     }
 }

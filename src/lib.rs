@@ -337,7 +337,7 @@ impl Screen {
     }
 
     pub fn write_cmd(&mut self, command: u8) -> ScreenResult {
-        self.dev.smbus_write_byte(command)?;
+        self.dev.smbus_write_byte_data((Command::SettingCommand as u8), command)?;
         thread::sleep(Duration::new(0, 10_000));
 
         Ok(())

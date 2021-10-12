@@ -31,6 +31,18 @@ fn main() {
     screen.set_cursor(true).unwrap();
     thread::sleep(Duration::from_secs(5));
 
+    println!("enable_blink");
+    screen.set_blink(true).unwrap();
+    thread::sleep(Duration::from_secs(5));
+
+    println!("display_off");
+    screen.set_status(false).unwrap();
+    thread::sleep(Duration::from_secs(5));
+
+    println!("display_on");
+    screen.set_status(true).unwrap();
+    thread::sleep(Duration::from_secs(5));
+
     println!("home");
     screen.home().unwrap();
     thread::sleep(Duration::from_secs(5));

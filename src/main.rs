@@ -14,13 +14,13 @@ fn main() {
     println!("init");
     // screen.init().unwrap();
 
-    println!("off");
-    screen.set_backlight(false).unwrap();
-    thread::sleep(Duration::from_secs(5));
+    // println!("off");
+    // screen.set_backlight(false).unwrap();
+    // thread::sleep(Duration::from_secs(5));
     
-    println!("on");
-    screen.set_backlight(true).unwrap();
-    thread::sleep(Duration::from_secs(5));
+    // println!("on");
+    // screen.set_backlight(true).unwrap();
+    // thread::sleep(Duration::from_secs(5));
     
     println!("show some text");
     screen.display("Hello Rust!", 1, 0).unwrap();

@@ -29,7 +29,7 @@ pub enum Command {
     EntryModeSet = 0x04,
     DisplayControl = 0x08,
     CursorShift = 0x10,
-    // FunctionSet = 0x20,
+    FunctionSet = 0x20,
     SetCGRamAddr = 0x40,
     SetDDRamAddr = 0x80,
 }
@@ -84,7 +84,7 @@ pub enum MoveDirection {
 #[derive(Copy, Clone)]
 pub enum Backlight {
     Off = 0x00,
-    On = 0x08,
+    On = 0x04,
 }
 
 // Specific flags
@@ -120,19 +120,23 @@ pub struct ScreenConfig {
     bit_mode: BitMode,
     line_count: LineCount,
     matrix_size: MatrixSize,
+    max_rows: u8,
+    max_columns: u8
 }
 
 impl ScreenConfig {
-    pub fn new(bit_mode: BitMode, line_count: LineCount, matrix_size: MatrixSize) -> ScreenConfig {
+    pub fn new(bit_mode: BitMode, line_count: LineCount, matrix_size: MatrixSize, max_rows: u8, max_columns: u8) -> ScreenConfig {
         ScreenConfig {
             bit_mode,
             line_count,
             matrix_size,
+            max_rows: 4,
+            max_columns: 20
         }
     }
 
     pub fn default() -> ScreenConfig {
-        ScreenConfig::new(BitMode::B4, LineCount::L2, MatrixSize::M5x8)
+        ScreenConfig::new(BitMode::B4, LineCount::L2, MatrixSize::M5x8, 4, 20)
     }
 }
 
@@ -183,7 +187,7 @@ impl Screen {
         self.write(0x03, WriteMode::Normal)?;
         self.write(0x02, WriteMode::Normal)?;
 
-        // self.install_function_set()?;
+        self.install_function_set()?;
 
         self.apply_display_state()?;
         self.clear()?;
@@ -197,15 +201,15 @@ impl Screen {
 
     // High-order commands mapped to methods
 
-    // pub fn install_function_set(&mut self) -> ScreenResult {
-    //     let mut flags = 0;
+    pub fn install_function_set(&mut self) -> ScreenResult {
+        let mut flags = 0;
 
-    //     flags = flags | (self.config.bit_mode as u8);
-    //     flags = flags | (self.config.line_count as u8);
-    //     flags = flags | (self.config.matrix_size as u8);
+        flags = flags | (self.config.bit_mode as u8);
+        flags = flags | (self.config.line_count as u8);
+        flags = flags | (self.config.matrix_size as u8);
 
-    //     self.command(Command::FunctionSet, flags)
-    // }
+        self.command(Command::FunctionSet, flags)
+    }
 
     pub fn clear(&mut self) -> ScreenResult {
         self.command(Command::ClearDisplay, 0)

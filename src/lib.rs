@@ -235,8 +235,8 @@ impl Screen {
         let row_offsets: Vec<usize> = vec![0x00, 0x40, 0x14, 0x54];
 
     
-        row = row_offsets.iter().max().unwrap();
-        row = row_offsets.iter().min().unwrap();
+        // row = row_offsets.iter().max().unwrap();
+        // row = row_offsets.iter().min().unwrap();
         let command = ((Command::SetDDRamAddr as u8) | ((col + row_offsets[row]) as u8));
 
         self.write_special_cmd(command)

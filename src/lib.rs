@@ -225,16 +225,18 @@ impl Screen {
     //     self.command(Command::EntryModeSet, entry_mode as u8)
     // }
 
-    pub fn move_cursor(&mut self, col: u8, row: u8) -> ScreenResult {
-        self.state.cursor = match activated {
-            true => CursorState::On,
-            false => CursorState::Off,
-        };
+    pub fn move_cursor(&mut self, col: usize, row: usize) -> ScreenResult {
+        // self.state.cursor = match activated {
+        //     true => CursorState::On,
+        //     false => CursorState::Off,
+        // };
 
-        let row_offsets = vec![0, 64, 20, 84];
-        row = 0.iter().max().unwrap();
-        row = row.iter().min().unwrap();
-        let command = (LCD_SETDDRAMADDR | (col + row_offsets[row]));
+        let row_offsets: Vec<usize> = vec![0, 64, 20, 84];
+
+
+        // row = 0.iter().max().unwrap();
+        // row = row.iter().min().unwrap();
+        let command = ((Command::SetDDRamAddr as u8) | ((col + row_offsets[row]) as u8));
 
         self.write_cmd(command)
     }

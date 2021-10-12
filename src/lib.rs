@@ -229,7 +229,7 @@ impl Screen {
 
     // Working
     // TODO: Patch min/max barrier
-    pub fn move_cursor(&mut self, col: usize, row: usize) -> ScreenResult {
+    pub fn move_cursor(&mut self, row: usize, col: usize) -> ScreenResult {
         // self.state.cursor = match activated {
         //     true => CursorState::On,
         //     false => CursorState::Off,
@@ -298,17 +298,34 @@ impl Screen {
     }
 
     pub fn display(&mut self, s: &str, line: u8, col: u8) -> ScreenResult {
-        let pos = match line {
-            1 => 0x00 + col,
-            2 => 0x40 + col,
-            3 => 0x14 + col,
-            4 => 0x54 + col,
-            _ => col,
-        };
-        self.write_cmd(pos)?;
+        // let pos = match line {
+        //     1 => 0x00 + col,
+        //     2 => 0x40 + col,
+        //     3 => 0x14 + col,
+        //     4 => 0x54 + col,
+        //     _ => col,
+        // };
+        // self.write_cmd(pos)?;
 
         for c in s.chars() {
-            self.write_char(c as u8)?;
+            self.write_byte(c as u8)?;
+        }
+
+        Ok(())
+    }
+
+    pub fn print(&mut self, s: &str) -> ScreenResult {
+        // let pos = match line {
+        //     1 => 0x00 + col,
+        //     2 => 0x40 + col,
+        //     3 => 0x14 + col,
+        //     4 => 0x54 + col,
+        //     _ => col,
+        // };
+        // self.write_cmd(pos)?;
+
+        for c in s.chars() {
+            self.write_byte(c as u8)?;
         }
 
         Ok(())
@@ -361,6 +378,12 @@ impl Screen {
 
     pub fn write_screen(&mut self, command: u8) -> ScreenResult {
         self.write_cmd(command)
+    }
+
+    pub fn write_byte(&mut self, command: u8) -> ScreenResult {
+        self.dev.smbus_write_byte(command)?;
+        thread::sleep(Duration::new(0, 10_000));
+        Ok(())
     }
 
     pub fn write_cmd(&mut self, command: u8) -> ScreenResult {

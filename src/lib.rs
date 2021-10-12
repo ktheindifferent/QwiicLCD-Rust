@@ -192,7 +192,7 @@ impl Screen {
 
         self.apply_display_state()?;
         self.clear()?;
-        self.set_entry_mode(EntryMode::Left)?; // Allow users to change this?
+        // self.set_entry_mode(EntryMode::Left)?; // Allow users to change this?
 
         // Wait for the screen to set up
         thread::sleep(Duration::from_millis(200));
@@ -212,12 +212,31 @@ impl Screen {
         self.command(Command::FunctionSet, flags)
     }
 
+    // Working
     pub fn clear(&mut self) -> ScreenResult {
         self.command(Command::ClearDisplay, 0)
     }
 
-    pub fn set_entry_mode(&mut self, entry_mode: EntryMode) -> ScreenResult {
-        self.command(Command::EntryModeSet, entry_mode as u8)
+    pub fn home(&mut self) -> ScreenResult {
+        self.command(Command::ReturnHome, 0)
+    }
+
+    // pub fn set_entry_mode(&mut self, entry_mode: EntryMode) -> ScreenResult {
+    //     self.command(Command::EntryModeSet, entry_mode as u8)
+    // }
+
+    pub fn move_cursor(&mut self, col: u8, row: u8) -> ScreenResult {
+        self.state.cursor = match activated {
+            true => CursorState::On,
+            false => CursorState::Off,
+        };
+
+        let row_offsets = vec![0, 64, 20, 84];
+        row = 0.iter().max().unwrap();
+        row = row.iter().min().unwrap();
+        let command = (LCD_SETDDRAMADDR | (col + row_offsets[row]));
+
+        self.write_cmd(command)
     }
 
     pub fn set_cursor(&mut self, activated: bool) -> ScreenResult {

@@ -215,9 +215,10 @@ impl Screen {
 
     // Working
     pub fn clear(&mut self) -> ScreenResult {
-        self.command(Command::ClearDisplay, 0)
+        self.write_setting_cmd(Command::ClearDisplay as u8)
     }
 
+    // Working
     pub fn home(&mut self) -> ScreenResult {
         self.write_special_cmd(Command::ReturnHome as u8)
     }
@@ -226,6 +227,8 @@ impl Screen {
     //     self.command(Command::EntryModeSet, entry_mode as u8)
     // }
 
+    // Working
+    // TODO: Patch min/max barrier
     pub fn move_cursor(&mut self, col: usize, row: usize) -> ScreenResult {
         // self.state.cursor = match activated {
         //     true => CursorState::On,
@@ -242,6 +245,7 @@ impl Screen {
         self.write_special_cmd(command as u8)
     }
 
+    // Working
     pub fn set_cursor(&mut self, activated: bool) -> ScreenResult {
         self.state.cursor = match activated {
             true => CursorState::On,
@@ -251,6 +255,7 @@ impl Screen {
         self.apply_display_state()
     }
 
+    // Working
     pub fn set_status(&mut self, activated: bool) -> ScreenResult {
         self.state.status = match activated {
             true => DisplayStatus::On,
@@ -260,6 +265,7 @@ impl Screen {
         self.apply_display_state()
     }
 
+    // Working
     pub fn set_blink(&mut self, activated: bool) -> ScreenResult {
         self.state.blink = match activated {
             true => BlinkState::On,
@@ -269,7 +275,7 @@ impl Screen {
         self.apply_display_state()
     }
 
-
+    // Working
     // Stateless so every argument is needed
     pub fn apply_display_state(&mut self) -> ScreenResult {
         let mut flags = 0;
@@ -300,7 +306,7 @@ impl Screen {
             _ => col,
         };
 
-        self.write(0x80 + pos, WriteMode::Normal)?;
+        self.write(pos, WriteMode::Normal)?;
 
         for c in s.chars() {
             self.write_char(c as u8)?;
@@ -359,17 +365,19 @@ impl Screen {
     }
 
     pub fn write_cmd(&mut self, command: u8) -> ScreenResult {
+        self.dev.smbus_write_byte(command)?;
+        thread::sleep(Duration::new(0, 10_000));
+        Ok(())
+    }
+
+    pub fn write_setting_cmd(&mut self, command: u8) -> ScreenResult {
         self.dev.smbus_write_byte_data((Command::SettingCommand as u8), command)?;
         thread::sleep(Duration::new(0, 10_000));
         Ok(())
     }
+    
     pub fn write_special_cmd(&mut self, command: u8) -> ScreenResult {
         self.dev.smbus_write_byte_data((Command::SpecialCommand as u8), command)?;
-        thread::sleep(Duration::new(0, 10_000));
-        Ok(())
-    }
-    pub fn write_display_control(&mut self, command: u8) -> ScreenResult {
-        self.dev.smbus_write_byte_data((Command::DisplayControl as u8), command)?;
         thread::sleep(Duration::new(0, 10_000));
         Ok(())
     }

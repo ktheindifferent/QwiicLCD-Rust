@@ -299,7 +299,7 @@ impl Screen {
 
     pub fn display(&mut self, s: &str, line: u8, col: u8) -> ScreenResult {
         let pos = match line {
-            1 => col,
+            1 => 0x00 + col,
             2 => 0x40 + col,
             3 => 0x14 + col,
             4 => 0x54 + col,

@@ -219,7 +219,7 @@ impl Screen {
     }
 
     pub fn home(&mut self) -> ScreenResult {
-        self.write_special_cmd(Command::ReturnHome, 0)
+        self.write_special_cmd(Command::ReturnHome)
     }
 
     // pub fn set_entry_mode(&mut self, entry_mode: EntryMode) -> ScreenResult {

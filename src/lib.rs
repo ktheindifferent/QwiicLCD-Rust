@@ -333,7 +333,7 @@ impl Screen {
     }
 
     pub fn write_screen(&mut self, command: u8) -> ScreenResult {
-        self.write_cmd((Command::SettingCommand as u8) | command)
+        self.write_cmd(command)
     }
 
     pub fn write_cmd(&mut self, command: u8) -> ScreenResult {

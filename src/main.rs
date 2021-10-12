@@ -12,7 +12,7 @@ fn main() {
     let mut screen = Screen::new(config, "/dev/i2c-1", 0x72).expect("Could not init device");
 
     println!("init");
-    // screen.init().unwrap();
+    screen.init().unwrap();
 
     // println!("off");
     // screen.set_backlight(false).unwrap();

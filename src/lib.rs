@@ -290,7 +290,7 @@ impl Screen {
     // to lower level of abstraction
 
     pub fn command(&mut self, command: Command, data: u8) -> ScreenResult {
-        self.write((command as u8) | data, WriteMode::Normal)
+        self.write((command as u8), WriteMode::Normal)
     }
 
     pub fn write_char(&mut self, ch: u8) -> ScreenResult {

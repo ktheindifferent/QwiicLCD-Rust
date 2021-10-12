@@ -307,17 +307,17 @@ impl Screen {
     }
 
     pub fn write(&mut self, command: u8, mode: WriteMode) -> ScreenResult {
-        match self.config.bit_mode {
-            BitMode::B4 => {
-                self.write_four_bytes((mode as u8) | (command & 0xF0))?;
-                self.write_four_bytes((mode as u8) | ((command << 4) & 0xF0))?;
-                Ok(())
-            },
-            BitMode::B8 => {
+        // match self.config.bit_mode {
+        //     BitMode::B4 => {
+        //         self.write_four_bytes((mode as u8) | (command & 0xF0))?;
+        //         self.write_four_bytes((mode as u8) | ((command << 4) & 0xF0))?;
+        //         Ok(())
+        //     },
+        //     BitMode::B8 => {
                 self.write_screen(command)?; // Not sure here for mode
                 Ok(())
-            }
-        }
+        //     }
+        // }
     }
 
     pub fn strobe(&mut self, data: u8) -> ScreenResult {

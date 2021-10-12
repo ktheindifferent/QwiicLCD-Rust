@@ -231,9 +231,9 @@ impl Screen {
         //     false => CursorState::Off,
         // };
 
-        let row_offsets: Vec<usize> = vec![0, 64, 20, 84];
+        let row_offsets: Vec<usize> = vec![0x00, 0x40, 0x14, 0x54];
 
-
+    
         // row = 0.iter().max().unwrap();
         // row = row.iter().min().unwrap();
         let command = ((Command::SetDDRamAddr as u8) | ((col + row_offsets[row]) as u8));

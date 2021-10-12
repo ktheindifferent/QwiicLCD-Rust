@@ -69,7 +69,7 @@ fn main() {
     println!("show some text");
     screen.display("Hello Rust!", 1, 0).unwrap();
     screen.move_cursor(2,0).unwrap();
-    screen.display("Fuck yeah :)", 1, 0).unwrap();
+    screen.display("Fuck yeah :)", 2, 0).unwrap();
     thread::sleep(Duration::from_secs(5));
     
     // println!("off");

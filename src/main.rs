@@ -20,15 +20,15 @@ fn main() {
     thread::sleep(Duration::from_secs(5));
 
     println!("enable_cursor");
-    screen.enable_cursor(true).unwrap();
+    screen.set_cursor(true).unwrap();
     thread::sleep(Duration::from_secs(5));
     
     println!("disable_cursor");
-    screen.enable_cursor(false).unwrap();
+    screen.set_cursor(false).unwrap();
     thread::sleep(Duration::from_secs(5));
 
     println!("enable_cursor");
-    screen.enable_cursor(true).unwrap();
+    screen.set_cursor(true).unwrap();
     thread::sleep(Duration::from_secs(5));
 
     println!("home");

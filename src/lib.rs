@@ -242,12 +242,13 @@ impl Screen {
         self.write_special_cmd(command as u8)
     }
 
-    pub fn enable_cursor(&mut self, enable: bool) -> ScreenResult {
-        if enable {
-            self.write_special_cmd((Command::DisplayControl as u8) | (CursorState::On as u8))
-        } else {
-            self.write_special_cmd((Command::DisplayControl as u8) | (CursorState::Off as u8))
-        }
+    pub fn set_cursor(&mut self, activated: bool) -> ScreenResult {
+        self.state.cursor = match activated {
+            true => CursorState::On,
+            false => CursorState::Off,
+        };
+
+        self.apply_display_state()
     }
 
     pub fn set_status(&mut self, activated: bool) -> ScreenResult {
@@ -277,7 +278,7 @@ impl Screen {
         flags = flags | (self.state.cursor as u8);
         flags = flags | (self.state.blink as u8);
 
-        self.command(Command::DisplayControl, flags)
+        self.write_display_control(flags)
     }
 
     // Other methods that are not commands
@@ -364,6 +365,11 @@ impl Screen {
     }
     pub fn write_special_cmd(&mut self, command: u8) -> ScreenResult {
         self.dev.smbus_write_byte_data((Command::SpecialCommand as u8), command)?;
+        thread::sleep(Duration::new(0, 10_000));
+        Ok(())
+    }
+    pub fn write_display_control(&mut self, command: u8) -> ScreenResult {
+        self.dev.smbus_write_byte_data((Command::DisplayControl as u8), command)?;
         thread::sleep(Duration::new(0, 10_000));
         Ok(())
     }

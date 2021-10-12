@@ -19,6 +19,18 @@ fn main() {
     screen.clear().unwrap();
     thread::sleep(Duration::from_secs(5));
 
+    println!("enable_cursor");
+    screen.enable_cursor(true).unwrap();
+    thread::sleep(Duration::from_secs(5));
+    
+    println!("disable_cursor");
+    screen.enable_cursor(false).unwrap();
+    thread::sleep(Duration::from_secs(5));
+
+    println!("enable_cursor");
+    screen.enable_cursor(true).unwrap();
+    thread::sleep(Duration::from_secs(5));
+
     println!("home");
     screen.home().unwrap();
     thread::sleep(Duration::from_secs(5));
@@ -36,10 +48,10 @@ fn main() {
     // screen.set_backlight(true).unwrap();
     // thread::sleep(Duration::from_secs(5));
     
-    println!("show some text");
-    screen.display("Hello Rust!", 1, 0).unwrap();
-    screen.display("Fuck yeah :)", 2, 0).unwrap();
-    thread::sleep(Duration::from_secs(5));
+    // println!("show some text");
+    // screen.display("Hello Rust!", 1, 0).unwrap();
+    // screen.display("Fuck yeah :)", 2, 0).unwrap();
+    // thread::sleep(Duration::from_secs(5));
     
     // println!("off");
     // screen.set_backlight(false).unwrap();

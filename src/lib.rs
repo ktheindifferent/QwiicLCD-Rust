@@ -242,13 +242,12 @@ impl Screen {
         self.write_special_cmd(command as u8)
     }
 
-    pub fn set_cursor(&mut self, activated: bool) -> ScreenResult {
-        self.state.cursor = match activated {
-            true => CursorState::On,
-            false => CursorState::Off,
-        };
-
-        self.apply_display_state()
+    pub fn enable_cursor(&mut self, enable: bool) -> ScreenResult {
+        if enable {
+            self.write_special_cmd((Command::DisplayControl as u8) | (CursorState::On as u8))
+        } else {
+            self.write_special_cmd((Command::DisplayControl as u8) | (CursorState::Off as u8))
+        }
     }
 
     pub fn set_status(&mut self, activated: bool) -> ScreenResult {

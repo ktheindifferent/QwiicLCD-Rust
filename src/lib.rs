@@ -278,7 +278,7 @@ impl Screen {
         flags = flags | (self.state.cursor as u8);
         flags = flags | (self.state.blink as u8);
 
-        self.write_display_control(flags)
+        self.write_special_cmd((Command::DisplayControl as u8) | flags)
     }
 
     // Other methods that are not commands

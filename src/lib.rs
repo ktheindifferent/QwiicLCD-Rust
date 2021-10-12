@@ -306,7 +306,7 @@ impl Screen {
             _ => col,
         };
 
-        self.write(pos, WriteMode::Normal)?;
+        self.write(0x70 + pos, WriteMode::Normal)?;
 
         for c in s.chars() {
             self.write_char(c as u8)?;

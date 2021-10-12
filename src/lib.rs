@@ -219,7 +219,7 @@ impl Screen {
     }
 
     pub fn home(&mut self) -> ScreenResult {
-        self.write_special_cmd(Command::ReturnHome)
+        self.write_special_cmd(Command::ReturnHome as u8)
     }
 
     // pub fn set_entry_mode(&mut self, entry_mode: EntryMode) -> ScreenResult {
@@ -239,7 +239,7 @@ impl Screen {
         // row = row_offsets.iter().min().unwrap();
         let command = ((Command::SetDDRamAddr as u8) | ((col + row_offsets[row]) as u8));
 
-        self.write_special_cmd(command)
+        self.write_special_cmd(command as u8)
     }
 
     pub fn set_cursor(&mut self, activated: bool) -> ScreenResult {

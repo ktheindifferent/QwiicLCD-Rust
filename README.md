@@ -2,7 +2,8 @@
 
 References used:
 
-https://github.com/sparkfun/Qwiic_SerLCD_Py/blob/main/qwiic_serlcd.py
+* https://github.com/sparkfun/Qwiic_SerLCD_Py/blob/main/qwiic_serlcd.py
+* https://github.com/MicroJoe/rust-i2c-16x2/blob/master/src/lib.rs
 
 ## Description
 

@@ -182,10 +182,6 @@ impl Screen {
     pub fn change_backlight(&mut self, r: u8, g: u8, b: u8) -> ScreenResult {
         let mut block = vec![0, 1, 2, 3];
 
-        // let red = 128 + map(r.into(), 0, 255, 0, 29) as u8;
-        // let green = 128 + map(g.into(), 0, 255, 0, 29) as u8;
-        // let blue = 188 + map(b.into(), 0, 255, 0, 29) as u8;
-     
         block[0] = Command::SetRGB as u8;
         block[1] = r;
         block[2] = g;

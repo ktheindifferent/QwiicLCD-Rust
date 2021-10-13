@@ -18,7 +18,7 @@ fn main() {
     screen.clear().unwrap();
     
     screen.move_cursor(0,0).unwrap();
-    screen.print("Hello Rust!").unwrap();
+    screen.print("Hello from Rust!").unwrap();
 
     screen.move_cursor(1,0).unwrap();
     screen.print("It works! :)").unwrap();

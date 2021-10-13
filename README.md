@@ -13,10 +13,12 @@ Currently I only have access to the 20x4 LCD for testing purposes. If you have i
 
 Add the following line to your cargo.toml:
 ```
-qwiic-lcd-rs = "*"
+qwiic-lcd-rs = "0.1.0"
 
-or
+```
 
+Or for the most recent commit on the master branch use:
+```
 qwiic-lcd-rs = { git = "https://github.com/PixelCoda/QwiicLCD-Rust.git", version = "*" }
 ```
 

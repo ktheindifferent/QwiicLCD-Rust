@@ -113,7 +113,7 @@ fn main() {
 
     screen.move_cursor(1,0).unwrap();
     screen.print("BG: Purple").unwrap();
-    screen.change_backlight(255, 0, 255).unwrap();
+    screen.change_backlight(75, 0, 130).unwrap();
     thread::sleep(Duration::from_secs(2));
     // println!("off");
     // screen.set_backlight(false).unwrap();

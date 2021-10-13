@@ -13,7 +13,7 @@ Currently I only have access to the 20x4 LCD for testing purposes. If you have i
 
 Add the following line to your cargo.toml:
 ```
-qwiic-lcd-rs = "0.1.0"
+qwiic-lcd-rs = "0.1.1"
 ```
 
 Or for the most recent commit on the master branch use:

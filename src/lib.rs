@@ -106,32 +106,21 @@ pub enum BitMode {
     B8 = 0x10,
 }
 
-#[derive(Copy, Clone)]
-pub enum LineCount {
-    L1 = 0x00,
-    L2 = 0x08,
-}
-
 pub struct ScreenConfig {
-    bit_mode: BitMode,
-    line_count: LineCount,
     max_rows: u8,
     max_columns: u8
 }
 
 impl ScreenConfig {
-    pub fn new(bit_mode: BitMode, line_count: LineCount, max_rows: u8, max_columns: u8) -> ScreenConfig {
+    pub fn new(max_rows: u8, max_columns: u8) -> ScreenConfig {
         ScreenConfig {
-            bit_mode,
-            line_count,
-            matrix_size,
             max_rows: 4,
             max_columns: 20
         }
     }
 
     pub fn default() -> ScreenConfig {
-        ScreenConfig::new(BitMode::B8, LineCount::L2, 4, 20)
+        ScreenConfig::new(4, 20)
     }
 }
 

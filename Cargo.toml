@@ -2,6 +2,8 @@
 name = "qwiic-lcd-rs"
 version = "0.1.0"
 authors = ["Caleb Mitchell Smith-Woolrich <calebsmithwoolrich@gmail.com>"]
+license = "MIT OR Apache-2.0"
+documentation = "https://docs.rs/qwiic-lcd-rs"
 
 [dependencies]
 i2cdev = "0.4.4"

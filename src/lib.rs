@@ -112,22 +112,15 @@ pub enum LineCount {
     L2 = 0x08,
 }
 
-#[derive(Copy, Clone)]
-pub enum MatrixSize {
-    M5x8 = 0x00,
-    M5x10 = 0x04
-}
-
 pub struct ScreenConfig {
     bit_mode: BitMode,
     line_count: LineCount,
-    matrix_size: MatrixSize,
     max_rows: u8,
     max_columns: u8
 }
 
 impl ScreenConfig {
-    pub fn new(bit_mode: BitMode, line_count: LineCount, matrix_size: MatrixSize, max_rows: u8, max_columns: u8) -> ScreenConfig {
+    pub fn new(bit_mode: BitMode, line_count: LineCount, max_rows: u8, max_columns: u8) -> ScreenConfig {
         ScreenConfig {
             bit_mode,
             line_count,
@@ -138,7 +131,7 @@ impl ScreenConfig {
     }
 
     pub fn default() -> ScreenConfig {
-        ScreenConfig::new(BitMode::B8, LineCount::L2, MatrixSize::M5x8, 4, 20)
+        ScreenConfig::new(BitMode::B8, LineCount::L2, 4, 20)
     }
 }
 
@@ -184,13 +177,6 @@ impl Screen {
     }
 
     pub fn init(&mut self) -> ScreenResult {
-        self.write(0x03, WriteMode::Normal)?;
-        self.write(0x03, WriteMode::Normal)?;
-        self.write(0x03, WriteMode::Normal)?;
-        self.write(0x02, WriteMode::Normal)?;
-
-        self.install_function_set()?;
-
         self.apply_display_state()?;
         self.clear()?;
         // self.set_entry_mode(EntryMode::Left)?; // Allow users to change this?
@@ -203,15 +189,6 @@ impl Screen {
 
     // High-order commands mapped to methods
 
-    pub fn install_function_set(&mut self) -> ScreenResult {
-        let mut flags = 0;
-
-        flags = flags | (self.config.bit_mode as u8);
-        flags = flags | (self.config.line_count as u8);
-        flags = flags | (self.config.matrix_size as u8);
-
-        self.command(Command::FunctionSet, flags)
-    }
 
     pub fn change_backlight(&mut self, r: u8, g: u8, b: u8) -> ScreenResult {
         let mut block = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
@@ -253,18 +230,11 @@ impl Screen {
         self.write_special_cmd(Command::ReturnHome as u8)
     }
 
-    // pub fn set_entry_mode(&mut self, entry_mode: EntryMode) -> ScreenResult {
-    //     self.command(Command::EntryModeSet, entry_mode as u8)
-    // }
+
 
     // Working
     // TODO: Patch min/max barrier
     pub fn move_cursor(&mut self, row: usize, col: usize) -> ScreenResult {
-        // self.state.cursor = match activated {
-        //     true => CursorState::On,
-        //     false => CursorState::Off,
-        // };
-
         let row_offsets: Vec<usize> = vec![0x00, 0x40, 0x14, 0x54];
 
     
@@ -321,39 +291,15 @@ impl Screen {
 
     pub fn set_backlight(&mut self, backlight: bool) -> ScreenResult {
         if backlight {
-            self.write_cmd(Backlight::On as u8)
+            self.write_byte(Backlight::On as u8)
         } else {
-            self.write_cmd(Backlight::Off as u8)
+            self.write_byte(Backlight::Off as u8)
         }
     }
 
-    pub fn display(&mut self, s: &str, line: u8, col: u8) -> ScreenResult {
-        // let pos = match line {
-        //     1 => 0x00 + col,
-        //     2 => 0x40 + col,
-        //     3 => 0x14 + col,
-        //     4 => 0x54 + col,
-        //     _ => col,
-        // };
-        // self.write_cmd(pos)?;
 
-        for c in s.chars() {
-            self.write_byte(c as u8)?;
-        }
-
-        Ok(())
-    }
 
     pub fn print(&mut self, s: &str) -> ScreenResult {
-        // let pos = match line {
-        //     1 => 0x00 + col,
-        //     2 => 0x40 + col,
-        //     3 => 0x14 + col,
-        //     4 => 0x54 + col,
-        //     _ => col,
-        // };
-        // self.write_cmd(pos)?;
-
         for c in s.chars() {
             self.write_byte(c as u8)?;
         }
@@ -365,50 +311,10 @@ impl Screen {
     // to lower level of abstraction
 
     pub fn command(&mut self, command: Command, data: u8) -> ScreenResult {
-        self.write((command as u8), WriteMode::Normal)
-
-
+        self.write_byte((command as u8))
     }
 
-    pub fn write_char(&mut self, ch: u8) -> ScreenResult {
-        self.write(ch, WriteMode::RegisterSelect)
-    }
 
-    pub fn write_four_bytes(&mut self, data: u8) -> ScreenResult {
-        self.write_screen(data)?;
-        self.strobe(data)?;
-        Ok(())
-    }
-
-    pub fn write(&mut self, command: u8, mode: WriteMode) -> ScreenResult {
-        // match self.config.bit_mode {
-        //     BitMode::B4 => {
-        //         self.write_four_bytes((mode as u8) | (command & 0xF0))?;
-        //         self.write_four_bytes((mode as u8) | ((command << 4) & 0xF0))?;
-        //         Ok(())
-        //     },
-        //     BitMode::B8 => {
-                self.write_screen(command)?; // Not sure here for mode
-                Ok(())
-        //     }
-        // }
-    }
-
-    pub fn strobe(&mut self, data: u8) -> ScreenResult {
-        // Set enable bit
-        self.write_screen(data | (WriteMode::Enable as u8))?;
-        thread::sleep(Duration::new(0, 50_000));
-
-        // Unset enable bit
-        self.write_screen(data & !(WriteMode::Enable as u8))?;
-        thread::sleep(Duration::new(0, 10_000));
-
-        Ok(())
-    }
-
-    pub fn write_screen(&mut self, command: u8) -> ScreenResult {
-        self.write_cmd(command)
-    }
 
     pub fn write_byte(&mut self, command: u8) -> ScreenResult {
         self.dev.smbus_write_byte(command)?;
@@ -418,12 +324,6 @@ impl Screen {
 
     pub fn write_block(&mut self, register: u8, data: Vec<u8>) -> ScreenResult {
         self.dev.smbus_write_i2c_block_data(register, &data)?;
-        thread::sleep(Duration::new(0, 10_000));
-        Ok(())
-    }
-
-    pub fn write_cmd(&mut self, command: u8) -> ScreenResult {
-        self.dev.smbus_write_byte(command)?;
         thread::sleep(Duration::new(0, 10_000));
         Ok(())
     }

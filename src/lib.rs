@@ -221,12 +221,17 @@ impl Screen {
         flags = flags | (self.state.cursor as u8);
         flags = flags | (self.state.blink as u8);
 
+        let mut offlags = 0;
+        offlags = offlags | (DisplayStatus::Off as u8);
+        offlags = offlags | (self.state.cursor as u8);
+        offlags = offlags | (self.state.blink as u8);
+
         let red = 128 + map(r.into(), 0, 255, 0, 29) as u8;
         let green = 128 + map(g.into(), 0, 255, 0, 29) as u8;
         let blue = 188 + map(b.into(), 0, 255, 0, 29) as u8;
      
         block[0] = Command::SpecialCommand as u8;
-        block[1] = ((Command::DisplayControl as u8) | flags);
+        block[1] = ((Command::DisplayControl as u8) | offlags);
         block[2] = Command::SettingCommand as u8;
         block[3] = red;
         block[4] = Command::SettingCommand as u8;

@@ -87,7 +87,7 @@ fn main() {
     screen.print("It works! :)").unwrap();
     thread::sleep(Duration::from_secs(5));
 
-    screen.change_backlight(126, 0, 0).unwrap();
+    screen.change_backlight(0, 0, 0).unwrap();
     thread::sleep(Duration::from_secs(5));
     screen.change_backlight(0, 126, 0).unwrap();
     thread::sleep(Duration::from_secs(5));

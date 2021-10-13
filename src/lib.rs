@@ -221,9 +221,9 @@ impl Screen {
         flags = flags | (self.state.cursor as u8);
         flags = flags | (self.state.blink as u8);
 
-        let red = 128 + map(r, 0, 255, 0, 29);
-        let green = 128 + map(r, 0, 255, 0, 29);;
-        let blue = 188 + map(b, 0, 255, 0, 29);
+        let red = 128 + map(r.into(), 0, 255, 0, 29) as u8;
+        let green = 128 + map(g.into(), 0, 255, 0, 29) as u8;
+        let blue = 188 + map(b.into(), 0, 255, 0, 29) as u8;
      
         block[0] = Command::SpecialCommand as u8;
         block[1] = ((Command::DisplayControl as u8) | flags);
@@ -438,8 +438,8 @@ impl Screen {
     }
 }
 
-pub fn map(x: u8, in_min: u8, in_max: u8, out_min: u8, out_max: u8) -> u8 {
-    return u8::from(((((x - in_min)*(out_max - out_min))/(in_max - in_min)) + out_min));
+pub fn map(x: usize, in_min: usize, in_max: usize, out_min: usize, out_max: usize) -> usize {
+    return usize::from(((((x - in_min)*(out_max - out_min))/(in_max - in_min)) + out_min));
 }
 
 #[cfg(test)]

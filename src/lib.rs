@@ -216,22 +216,19 @@ impl Screen {
     pub fn change_backlight(&mut self, r: u8, g: u8, b: u8) -> ScreenResult {
         let mut block = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
+        self.set_status(false);
+
         let mut flags = 0;
         flags = flags | (self.state.status as u8);
         flags = flags | (self.state.cursor as u8);
         flags = flags | (self.state.blink as u8);
-
-        let mut offlags = 0;
-        offlags = offlags | (DisplayStatus::Off as u8);
-        offlags = offlags | (self.state.cursor as u8);
-        offlags = offlags | (self.state.blink as u8);
 
         let red = 128 + map(r.into(), 0, 255, 0, 29) as u8;
         let green = 128 + map(g.into(), 0, 255, 0, 29) as u8;
         let blue = 188 + map(b.into(), 0, 255, 0, 29) as u8;
      
         block[0] = Command::SpecialCommand as u8;
-        block[1] = ((Command::DisplayControl as u8) | offlags);
+        block[1] = ((Command::DisplayControl as u8) | flags);
         block[2] = Command::SettingCommand as u8;
         block[3] = red;
         block[4] = Command::SettingCommand as u8;
@@ -241,7 +238,8 @@ impl Screen {
      
         block[8] = Command::SpecialCommand as u8;
         block[9] = ((Command::DisplayControl as u8) | flags);
-        self.write_block((Command::SettingCommand as u8), block)
+        self.write_block((Command::SettingCommand as u8), block);
+        self.set_status(true)
     }
 
 

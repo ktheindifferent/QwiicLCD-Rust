@@ -1,3 +1,18 @@
+// Copyright 2021 Caleb Mitchell Smith-Woolrich (PixelCoda)
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+
 extern crate qwiic_lcd_rs;
 
 use qwiic_lcd_rs::*;
@@ -54,8 +69,8 @@ fn main() {
     screen.change_backlight(255, 255, 255).unwrap();
     screen.home().unwrap();
     screen.move_cursor(0,0).unwrap();
-    screen.set_blink(false).unwrap();
-    screen.set_cursor(true).unwrap();
+    screen.enable_blink(false).unwrap();
+    screen.enable_blink(true).unwrap();
     screen.clear().unwrap();
 
     // println!("off");
@@ -71,7 +86,12 @@ fn main() {
     screen.move_cursor(1,0).unwrap();
     screen.print("It works! :)").unwrap();
     thread::sleep(Duration::from_secs(5));
-    
+
+    screen.change_backlight(255, 0, 255).unwrap();
+    thread::sleep(Duration::from_secs(5));
+    screen.change_backlight(0, 255, 255).unwrap();
+    thread::sleep(Duration::from_secs(5));
+    screen.change_backlight(255, 255, 0).unwrap();
     // println!("off");
     // screen.set_backlight(false).unwrap();
     // thread::sleep(Duration::from_secs(1));

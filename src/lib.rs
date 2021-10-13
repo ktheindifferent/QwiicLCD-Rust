@@ -1,4 +1,5 @@
-// Copyright 2017 Romain Porte
+// Copyright 2021 Caleb Mitchell Smith-Woolrich (PixelCoda)
+// Forked from Romain Porte 2017 (https://github.com/MicroJoe/rust-i2c-16x2/blob/master/src/lib.rs)
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -32,6 +33,7 @@ pub enum Command {
     FunctionSet = 0x20,
     SetCGRamAddr = 0x40,
     SetDDRamAddr = 0x80,
+    SetRGB = 0x2B,
     SettingCommand = 0x7C,
     SpecialCommand = 254
 }
@@ -144,9 +146,7 @@ impl DisplayState {
     }
 }
 
-
 // Screen
-
 pub struct Screen {
     dev: LinuxI2CDevice,
     config: ScreenConfig,
@@ -180,32 +180,18 @@ impl Screen {
 
 
     pub fn change_backlight(&mut self, r: u8, g: u8, b: u8) -> ScreenResult {
-        let mut block = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-
-        self.set_status(false);
-
-        let mut flags = 0;
-        flags = flags | (self.state.status as u8);
-        flags = flags | (self.state.cursor as u8);
-        flags = flags | (self.state.blink as u8);
+        let mut block = vec![0, 1, 2, 3];
 
         let red = 128 + map(r.into(), 0, 255, 0, 29) as u8;
         let green = 128 + map(g.into(), 0, 255, 0, 29) as u8;
         let blue = 188 + map(b.into(), 0, 255, 0, 29) as u8;
      
-        block[0] = Command::SpecialCommand as u8;
-        block[1] = ((Command::DisplayControl as u8) | flags);
-        block[2] = Command::SettingCommand as u8;
-        block[3] = red;
-        block[4] = Command::SettingCommand as u8;
-        block[5] = green;
-        block[6] = Command::SettingCommand as u8;
-        block[7] = blue;
-     
-        block[8] = Command::SpecialCommand as u8;
-        block[9] = ((Command::DisplayControl as u8) | flags);
-        self.write_block((Command::SettingCommand as u8), block);
-        self.set_status(true)
+        block[0] = Command::SetRGB as u8;
+        block[1] = red;
+        block[2] = green;
+        block[3] = blue;
+
+        self.write_block((Command::SettingCommand as u8), block)
     }
 
 
@@ -219,23 +205,22 @@ impl Screen {
         self.write_special_cmd(Command::ReturnHome as u8)
     }
 
-
-
-    // Working
-    // TODO: Patch min/max barrier
     pub fn move_cursor(&mut self, row: usize, col: usize) -> ScreenResult {
         let row_offsets: Vec<usize> = vec![0x00, 0x40, 0x14, 0x54];
 
-    
-        // row = row_offsets.iter().max().unwrap();
-        // row = row_offsets.iter().min().unwrap();
+        if row > self.config.max_rows.into() || row < 0 {
+            return self.apply_display_state();
+        }
+        if col > self.config.max_columns.into() || col < 0 {
+            return self.apply_display_state();
+        }
+
         let command = ((Command::SetDDRamAddr as u8) | ((col + row_offsets[row]) as u8));
 
         self.write_special_cmd(command as u8)
     }
 
-    // Working
-    pub fn set_cursor(&mut self, activated: bool) -> ScreenResult {
+    pub fn enable_cursor(&mut self, activated: bool) -> ScreenResult {
         self.state.cursor = match activated {
             true => CursorState::On,
             false => CursorState::Off,
@@ -244,8 +229,7 @@ impl Screen {
         self.apply_display_state()
     }
 
-    // Working
-    pub fn set_status(&mut self, activated: bool) -> ScreenResult {
+    pub fn enable_display(&mut self, activated: bool) -> ScreenResult {
         self.state.status = match activated {
             true => DisplayStatus::On,
             false => DisplayStatus::Off,
@@ -254,8 +238,7 @@ impl Screen {
         self.apply_display_state()
     }
 
-    // Working
-    pub fn set_blink(&mut self, activated: bool) -> ScreenResult {
+    pub fn enable_blink(&mut self, activated: bool) -> ScreenResult {
         self.state.blink = match activated {
             true => BlinkState::On,
             false => BlinkState::Off,
@@ -264,8 +247,6 @@ impl Screen {
         self.apply_display_state()
     }
 
-    // Working
-    // Stateless so every argument is needed
     pub fn apply_display_state(&mut self) -> ScreenResult {
         let mut flags = 0;
 
@@ -276,18 +257,6 @@ impl Screen {
         self.write_special_cmd((Command::DisplayControl as u8) | flags)
     }
 
-    // Other methods that are not commands
-
-    pub fn set_backlight(&mut self, backlight: bool) -> ScreenResult {
-        if backlight {
-            self.write_byte(Backlight::On as u8)
-        } else {
-            self.write_byte(Backlight::Off as u8)
-        }
-    }
-
-
-
     pub fn print(&mut self, s: &str) -> ScreenResult {
         for c in s.chars() {
             self.write_byte(c as u8)?;
@@ -296,14 +265,9 @@ impl Screen {
         Ok(())
     }
 
-    // Lower-level methods that write commands to device, ordered from higher
-    // to lower level of abstraction
-
     pub fn command(&mut self, command: Command, data: u8) -> ScreenResult {
         self.write_byte((command as u8))
     }
-
-
 
     pub fn write_byte(&mut self, command: u8) -> ScreenResult {
         self.dev.smbus_write_byte(command)?;

@@ -51,7 +51,7 @@ fn main() {
     // screen.move_cursor(2,2).unwrap();
     // thread::sleep(Duration::from_secs(5));
     
-
+    screen.change_backlight(128, 0, 128).unwrap();
     screen.home().unwrap();
     screen.move_cursor(0,0).unwrap();
     screen.set_blink(false).unwrap();

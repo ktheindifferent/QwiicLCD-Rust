@@ -213,6 +213,33 @@ impl Screen {
         self.command(Command::FunctionSet, flags)
     }
 
+    pub fn change_backlight(&mut self, r: u8, g: u8, b: u8) -> ScreenResult {
+        let mut block = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+
+        let mut flags = 0;
+        flags = flags | (self.state.status as u8);
+        flags = flags | (self.state.cursor as u8);
+        flags = flags | (self.state.blink as u8);
+
+        let red = 128 + map(r, 0, 255, 0, 29);
+        let green = 128 + map(r, 0, 255, 0, 29);;
+        let blue = 188 + map(b, 0, 255, 0, 29);
+     
+        block[0] = Command::SpecialCommand as u8;
+        block[1] = ((Command::DisplayControl as u8) | flags);
+        block[2] = Command::SettingCommand as u8;
+        block[3] = red;
+        block[4] = Command::SettingCommand as u8;
+        block[5] = green;
+        block[6] = Command::SettingCommand as u8;
+        block[7] = blue;
+     
+        block[8] = Command::SpecialCommand as u8;
+        block[9] = ((Command::DisplayControl as u8) | flags);
+        self.write_block((Command::SettingCommand as u8), block)
+    }
+
+
     // Working
     pub fn clear(&mut self) -> ScreenResult {
         self.write_setting_cmd(Command::ClearDisplay as u8)
@@ -386,6 +413,12 @@ impl Screen {
         Ok(())
     }
 
+    pub fn write_block(&mut self, register: u8, data: Vec<u8>) -> ScreenResult {
+        self.dev.smbus_write_i2c_block_data(register, &data)?;
+        thread::sleep(Duration::new(0, 10_000));
+        Ok(())
+    }
+
     pub fn write_cmd(&mut self, command: u8) -> ScreenResult {
         self.dev.smbus_write_byte(command)?;
         thread::sleep(Duration::new(0, 10_000));
@@ -403,6 +436,10 @@ impl Screen {
         thread::sleep(Duration::new(0, 10_000));
         Ok(())
     }
+}
+
+pub fn map(x: u8, in_min: u8, in_max: u8, out_min: u8, out_max: u8) -> u8 {
+    return u8::from(((((x - in_min)*(out_max - out_min))/(in_max - in_min)) + out_min));
 }
 
 #[cfg(test)]

@@ -168,16 +168,14 @@ impl Screen {
     pub fn init(&mut self) -> ScreenResult {
         self.apply_display_state()?;
         self.clear()?;
-        // self.set_entry_mode(EntryMode::Left)?; // Allow users to change this?
-
+        self.enable_blink(false)?;
+        self.enable_cursor(false)?;
+  
         // Wait for the screen to set up
         thread::sleep(Duration::from_millis(200));
 
         Ok(())
     }
-
-    // High-order commands mapped to methods
-
 
     pub fn change_backlight(&mut self, r: u8, g: u8, b: u8) -> ScreenResult {
         let mut block = vec![0, 1, 2, 3];
@@ -190,13 +188,11 @@ impl Screen {
         self.write_block((Command::SettingCommand as u8), block)
     }
 
-
-    // Working
     pub fn clear(&mut self) -> ScreenResult {
-        self.write_setting_cmd(Command::ClearDisplay as u8)
+        self.write_setting_cmd(Command::ClearDisplay as u8);
+        self.home()
     }
 
-    // Working
     pub fn home(&mut self) -> ScreenResult {
         self.write_special_cmd(Command::ReturnHome as u8)
     }
@@ -301,6 +297,38 @@ mod tests {
     #[test]
     fn test_init() {
         let _config = ScreenConfig::default();
+
+        let config = ScreenConfig::default();
+        let mut screen = Screen::new(config, "/dev/i2c-1", 0x72).expect("Could not init device");
+    
+        screen.change_backlight(255, 255, 255).unwrap();
+        screen.home().unwrap();
+        screen.move_cursor(0,0).unwrap();
+        screen.enable_blink(false).unwrap();
+        screen.enable_blink(true).unwrap();
+        screen.clear().unwrap();
+        screen.print("Testing...").unwrap();
+        thread::sleep(Duration::from_secs(1));
+        
+        screen.move_cursor(1,0).unwrap();
+        screen.print("BG: Green").unwrap();
+        screen.change_backlight(0, 255, 0).unwrap();
+        thread::sleep(Duration::from_secs(2));
+        
+        screen.move_cursor(1,0).unwrap();
+        screen.print("BG: Red").unwrap();
+        screen.change_backlight(255, 0, 0).unwrap();
+        thread::sleep(Duration::from_secs(2));
+        
+        screen.move_cursor(1,0).unwrap();
+        screen.print("BG: Blue").unwrap();
+        screen.change_backlight(0, 0, 255).unwrap();
+        thread::sleep(Duration::from_secs(2));
+
+        screen.move_cursor(1,0).unwrap();
+        screen.print("BG: Purple").unwrap();
+        screen.change_backlight(230, 230, 250).unwrap();
+        thread::sleep(Duration::from_secs(2));
     }
 }
 

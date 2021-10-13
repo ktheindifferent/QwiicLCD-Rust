@@ -85,13 +85,36 @@ fn main() {
     screen.print("Hello Rust!").unwrap();
     screen.move_cursor(1,0).unwrap();
     screen.print("It works! :)").unwrap();
-    thread::sleep(Duration::from_secs(5));
+    thread::sleep(Duration::from_secs(2));
 
-    screen.change_backlight(0, 0, 0).unwrap();
-    thread::sleep(Duration::from_secs(5));
-    screen.change_backlight(0, 126, 0).unwrap();
-    thread::sleep(Duration::from_secs(5));
-    screen.change_backlight(0, 126, 0).unwrap();
+    screen.change_backlight(255, 255, 255).unwrap();
+    screen.home().unwrap();
+    screen.move_cursor(0,0).unwrap();
+    screen.enable_blink(false).unwrap();
+    screen.enable_blink(true).unwrap();
+    screen.clear().unwrap();
+    screen.print("Testing...").unwrap();
+    thread::sleep(Duration::from_secs(1));
+    
+    screen.move_cursor(1,0).unwrap();
+    screen.print("BG: Green").unwrap();
+    screen.change_backlight(0, 255, 0).unwrap();
+    thread::sleep(Duration::from_secs(2));
+    
+    screen.move_cursor(1,0).unwrap();
+    screen.print("BG: Red").unwrap();
+    screen.change_backlight(255, 0, 0).unwrap();
+    thread::sleep(Duration::from_secs(2));
+    
+    screen.move_cursor(1,0).unwrap();
+    screen.print("BG: Blue").unwrap();
+    screen.change_backlight(0, 0, 255).unwrap();
+    thread::sleep(Duration::from_secs(2));
+
+    screen.move_cursor(1,0).unwrap();
+    screen.print("BG: Purple").unwrap();
+    screen.change_backlight(230, 230, 250).unwrap();
+    thread::sleep(Duration::from_secs(2));
     // println!("off");
     // screen.set_backlight(false).unwrap();
     // thread::sleep(Duration::from_secs(1));

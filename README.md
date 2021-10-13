@@ -33,7 +33,6 @@ fn main() {
     let config = ScreenConfig::default();
     let mut screen = Screen::new(config, "/dev/i2c-1", 0x72).expect("Could not init device");
 
-  
     screen.change_backlight(255, 255, 255).unwrap();
     screen.home().unwrap();
     screen.enable_blink(false).unwrap();

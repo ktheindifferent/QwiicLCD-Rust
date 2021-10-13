@@ -295,7 +295,7 @@ impl Screen {
 }
 
 pub fn map(x: usize, in_min: usize, in_max: usize, out_min: usize, out_max: usize) -> usize {
-    return usize::from(((((x - in_min)*(out_max - out_min))/(in_max - in_min)) + out_min));
+    return usize::from(((x-in_min) * (out_max-out_min) / (in_max-in_min) + out_min));
 }
 
 #[cfg(test)]

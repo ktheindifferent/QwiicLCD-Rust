@@ -40,6 +40,10 @@ fn main() {
     // Default Qwiic address is 0x72
     let mut screen = Screen::new(config, "/dev/i2c-1", 0x72).expect("Could not init device");
 
+    // Set backlight to green and wait 1 second
+    screen.change_backlight(0, 255, 0).unwrap();
+    thread::sleep(Duration::from_secs(1));
+
     // Set backlight to bright white
     screen.change_backlight(255, 255, 255).unwrap();
 

@@ -257,10 +257,6 @@ impl Screen {
         Ok(())
     }
 
-    pub fn command(&mut self, command: Command, data: u8) -> ScreenResult {
-        self.write_byte((command as u8))
-    }
-
     pub fn write_byte(&mut self, command: u8) -> ScreenResult {
         self.dev.smbus_write_byte(command)?;
         thread::sleep(Duration::new(0, 10_000));

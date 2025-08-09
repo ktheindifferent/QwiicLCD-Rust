@@ -2,6 +2,7 @@
 name = "qwiic-lcd-rs"
 description = "This library aims at controlling QwiicLCD screens using I2C from Linux."
 version = "0.1.11"
+edition = "2021"
 authors = ["Caleb Mitchell Smith-Woolrich <calebsmithwoolrich@gmail.com>"]
 license = "MIT OR Apache-2.0"
 documentation = "https://docs.rs/qwiic-lcd-rs"

@@ -307,7 +307,28 @@ impl Screen {
 
 /// Maps a value from one range to another
 pub fn map(x: usize, in_min: usize, in_max: usize, out_min: usize, out_max: usize) -> usize {
-    (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
+    // Handle edge case where input range is zero
+    if in_max == in_min {
+        return out_min;
+    }
+    
+    // Handle potential overflow/underflow
+    if x <= in_min {
+        return out_min;
+    }
+    if x >= in_max {
+        return out_max;
+    }
+    
+    // Perform the mapping calculation
+    let numerator = (x - in_min) * (out_max.abs_diff(out_min));
+    let denominator = in_max - in_min;
+    
+    if out_max >= out_min {
+        out_min + (numerator / denominator)
+    } else {
+        out_min - (numerator / denominator)
+    }
 }
 
 #[cfg(test)]
@@ -315,6 +336,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[ignore] // This test requires hardware
     fn test_init() {
         let config = ScreenConfig::default();
         let mut screen = Screen::new(config, "/dev/i2c-1", 0x72).expect("Could not init device");
@@ -356,5 +378,162 @@ mod tests {
         screen.clear().unwrap();
         screen.print("It Works!").unwrap();
         thread::sleep(Duration::from_secs(1));
+    }
+
+    #[test]
+    fn test_map_function() {
+        // Test basic mapping
+        assert_eq!(map(5, 0, 10, 0, 100), 50);
+        assert_eq!(map(0, 0, 10, 0, 100), 0);
+        assert_eq!(map(10, 0, 10, 0, 100), 100);
+        
+        // Test different ranges
+        assert_eq!(map(25, 0, 100, 0, 10), 2);
+        assert_eq!(map(75, 0, 100, 0, 10), 7);
+        
+        // Test with offset ranges
+        assert_eq!(map(15, 10, 20, 100, 200), 150);
+        assert_eq!(map(10, 10, 20, 100, 200), 100);
+        assert_eq!(map(20, 10, 20, 100, 200), 200);
+    }
+
+    #[test]
+    fn test_screen_config_new() {
+        let config = ScreenConfig::new(2, 16);
+        assert_eq!(config.max_rows, 2);
+        assert_eq!(config.max_columns, 16);
+        
+        let config = ScreenConfig::new(4, 20);
+        assert_eq!(config.max_rows, 4);
+        assert_eq!(config.max_columns, 20);
+        
+        let config = ScreenConfig::new(1, 8);
+        assert_eq!(config.max_rows, 1);
+        assert_eq!(config.max_columns, 8);
+    }
+
+    #[test]
+    fn test_screen_config_default() {
+        let config = ScreenConfig::default();
+        assert_eq!(config.max_rows, 4);
+        assert_eq!(config.max_columns, 20);
+    }
+
+    #[test]
+    fn test_display_state_new() {
+        let state = DisplayState::new(DisplayStatus::On, CursorState::Off, BlinkState::On);
+        assert!(matches!(state.status, DisplayStatus::On));
+        assert!(matches!(state.cursor, CursorState::Off));
+        assert!(matches!(state.blink, BlinkState::On));
+        
+        let state = DisplayState::new(DisplayStatus::Off, CursorState::On, BlinkState::Off);
+        assert!(matches!(state.status, DisplayStatus::Off));
+        assert!(matches!(state.cursor, CursorState::On));
+        assert!(matches!(state.blink, BlinkState::Off));
+    }
+
+    #[test]
+    fn test_display_state_default() {
+        let state = DisplayState::default();
+        assert!(matches!(state.status, DisplayStatus::On));
+        assert!(matches!(state.cursor, CursorState::On));
+        assert!(matches!(state.blink, BlinkState::On));
+    }
+
+    #[test]
+    fn test_command_values() {
+        assert_eq!(Command::ClearDisplay as u8, 0x2D);
+        assert_eq!(Command::ReturnHome as u8, 0x02);
+        assert_eq!(Command::EntryModeSet as u8, 0x04);
+        assert_eq!(Command::DisplayControl as u8, 0x08);
+        assert_eq!(Command::CursorShift as u8, 0x10);
+        assert_eq!(Command::FunctionSet as u8, 0x20);
+        assert_eq!(Command::SetCGRamAddr as u8, 0x40);
+        assert_eq!(Command::SetDDRamAddr as u8, 0x80);
+        assert_eq!(Command::SetRGB as u8, 0x2B);
+        assert_eq!(Command::SettingCommand as u8, 0x7C);
+        assert_eq!(Command::SpecialCommand as u8, 254);
+    }
+
+    #[test]
+    fn test_entry_mode_values() {
+        assert_eq!(EntryMode::Right as u8, 0x00);
+        assert_eq!(EntryMode::Left as u8, 0x02);
+    }
+
+    #[test]
+    fn test_entry_shift_values() {
+        assert_eq!(EntryShift::Increment as u8, 0x01);
+        assert_eq!(EntryShift::Decrement as u8, 0x00);
+    }
+
+    #[test]
+    fn test_display_status_values() {
+        assert_eq!(DisplayStatus::Off as u8, 0x00);
+        assert_eq!(DisplayStatus::On as u8, 0x04);
+    }
+
+    #[test]
+    fn test_cursor_state_values() {
+        assert_eq!(CursorState::Off as u8, 0x00);
+        assert_eq!(CursorState::On as u8, 0x02);
+    }
+
+    #[test]
+    fn test_blink_state_values() {
+        assert_eq!(BlinkState::Off as u8, 0x00);
+        assert_eq!(BlinkState::On as u8, 0x01);
+    }
+
+    #[test]
+    fn test_move_type_values() {
+        assert_eq!(MoveType::Cursor as u8, 0x00);
+        assert_eq!(MoveType::Display as u8, 0x08);
+    }
+
+    #[test]
+    fn test_move_direction_values() {
+        assert_eq!(MoveDirection::Left as u8, 0x00);
+        assert_eq!(MoveDirection::Right as u8, 0x04);
+    }
+
+    #[test]
+    fn test_backlight_values() {
+        assert_eq!(Backlight::Off as u8, 0x00);
+        assert_eq!(Backlight::On as u8, 0x04);
+    }
+
+    #[test]
+    fn test_write_mode_values() {
+        assert_eq!(WriteMode::Enable as u8, 0x04);
+        assert_eq!(WriteMode::ReadWrite as u8, 0x02);
+        assert_eq!(WriteMode::RegisterSelect as u8, 0x01);
+        assert_eq!(WriteMode::Normal as u8, 0x00);
+    }
+
+    #[test]
+    fn test_bit_mode_values() {
+        assert_eq!(BitMode::B4 as u8, 0x00);
+        assert_eq!(BitMode::B8 as u8, 0x10);
+    }
+
+    #[test]
+    fn test_map_edge_cases() {
+        // Same input and output range
+        assert_eq!(map(5, 0, 10, 0, 10), 5);
+        
+        // Single point range (edge case) - returns out_min when in_max == in_min
+        assert_eq!(map(0, 0, 0, 0, 100), 0);
+        assert_eq!(map(5, 5, 5, 0, 100), 0);
+        
+        // Large numbers
+        assert_eq!(map(500, 0, 1000, 0, 10000), 5000);
+        
+        // Fractional result (truncated due to integer division)
+        assert_eq!(map(1, 0, 3, 0, 10), 3); // 1/3 * 10 = 3.33... truncated to 3
+        
+        // Out of bounds values - clamp to range
+        assert_eq!(map(15, 0, 10, 0, 100), 100); // Above max
+        assert_eq!(map(0, 5, 10, 0, 100), 0); // Below min
     }
 }

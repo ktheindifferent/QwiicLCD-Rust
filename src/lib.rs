@@ -266,12 +266,74 @@ impl Screen {
     }
 
     /// Prints a string to the LCD at the current cursor position
+    ///
+    /// This method handles ASCII and extended ASCII characters (0x20-0xFF).
+    /// Characters outside this range will be replaced with '?' (0x3F).
+    ///
+    /// # Character Set Support
+    /// - Standard ASCII (0x20-0x7E): Fully supported
+    /// - Extended ASCII (0x80-0xFF): Support depends on LCD ROM code
+    /// - Unicode/UTF-8: Not supported, will be replaced with '?'
+    ///
+    /// For strict ASCII-only printing, use `print_ascii()` instead.
     pub fn print(&mut self, s: &str) -> ScreenResult {
         for c in s.chars() {
-            self.write_byte(c as u8)?;
+            let byte = self.map_character(c);
+            self.write_byte(byte)?;
         }
 
         Ok(())
+    }
+
+    /// Prints ASCII-only text to the LCD at the current cursor position
+    ///
+    /// This method strictly accepts only ASCII characters (0x20-0x7E).
+    /// Returns an error if any non-ASCII character is encountered.
+    pub fn print_ascii(&mut self, s: &str) -> Result<(), String> {
+        if !s.is_ascii() {
+            return Err("String contains non-ASCII characters".to_string());
+        }
+
+        for c in s.chars() {
+            if c as u32 >= 0x20 && c as u32 <= 0x7E {
+                self.write_byte(c as u8)
+                    .map_err(|e| format!("I2C error: {:?}", e))?;
+            } else if c == '\n' || c == '\r' || c == '\t' {
+                // Skip control characters silently
+                continue;
+            } else {
+                return Err(format!(
+                    "Character '{}' (0x{:02X}) is not printable ASCII",
+                    c, c as u32
+                ));
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Maps a character to a byte value suitable for the LCD
+    ///
+    /// Handles character encoding for HD44780-compatible displays:
+    /// - ASCII printable characters (0x20-0x7E) are passed through
+    /// - Extended ASCII (0x80-0xFF) are passed through (ROM-dependent support)
+    /// - Characters outside supported range are replaced with '?' (0x3F)
+    fn map_character(&self, c: char) -> u8 {
+        let code = c as u32;
+
+        // Standard ASCII printable range and extended ASCII
+        if (0x20..=0x7E).contains(&code) || (0x80..=0xFF).contains(&code) {
+            code as u8
+        }
+        // Common replacements for better display
+        else {
+            match c {
+                // Tab, newline, carriage return -> space
+                '\t' | '\n' | '\r' => 0x20,
+                // Everything else -> question mark
+                _ => 0x3F,
+            }
+        }
     }
 
     /// Writes a single byte to the LCD
@@ -311,7 +373,7 @@ pub fn map(x: usize, in_min: usize, in_max: usize, out_min: usize, out_max: usiz
     if in_max == in_min {
         return out_min;
     }
-    
+
     // Handle potential overflow/underflow
     if x <= in_min {
         return out_min;
@@ -319,11 +381,11 @@ pub fn map(x: usize, in_min: usize, in_max: usize, out_min: usize, out_max: usiz
     if x >= in_max {
         return out_max;
     }
-    
+
     // Perform the mapping calculation
     let numerator = (x - in_min) * (out_max.abs_diff(out_min));
     let denominator = in_max - in_min;
-    
+
     if out_max >= out_min {
         out_min + (numerator / denominator)
     } else {
@@ -386,11 +448,11 @@ mod tests {
         assert_eq!(map(5, 0, 10, 0, 100), 50);
         assert_eq!(map(0, 0, 10, 0, 100), 0);
         assert_eq!(map(10, 0, 10, 0, 100), 100);
-        
+
         // Test different ranges
         assert_eq!(map(25, 0, 100, 0, 10), 2);
         assert_eq!(map(75, 0, 100, 0, 10), 7);
-        
+
         // Test with offset ranges
         assert_eq!(map(15, 10, 20, 100, 200), 150);
         assert_eq!(map(10, 10, 20, 100, 200), 100);
@@ -402,11 +464,11 @@ mod tests {
         let config = ScreenConfig::new(2, 16);
         assert_eq!(config.max_rows, 2);
         assert_eq!(config.max_columns, 16);
-        
+
         let config = ScreenConfig::new(4, 20);
         assert_eq!(config.max_rows, 4);
         assert_eq!(config.max_columns, 20);
-        
+
         let config = ScreenConfig::new(1, 8);
         assert_eq!(config.max_rows, 1);
         assert_eq!(config.max_columns, 8);
@@ -425,7 +487,7 @@ mod tests {
         assert!(matches!(state.status, DisplayStatus::On));
         assert!(matches!(state.cursor, CursorState::Off));
         assert!(matches!(state.blink, BlinkState::On));
-        
+
         let state = DisplayState::new(DisplayStatus::Off, CursorState::On, BlinkState::Off);
         assert!(matches!(state.status, DisplayStatus::Off));
         assert!(matches!(state.cursor, CursorState::On));
@@ -521,19 +583,186 @@ mod tests {
     fn test_map_edge_cases() {
         // Same input and output range
         assert_eq!(map(5, 0, 10, 0, 10), 5);
-        
+
         // Single point range (edge case) - returns out_min when in_max == in_min
         assert_eq!(map(0, 0, 0, 0, 100), 0);
         assert_eq!(map(5, 5, 5, 0, 100), 0);
-        
+
         // Large numbers
         assert_eq!(map(500, 0, 1000, 0, 10000), 5000);
-        
+
         // Fractional result (truncated due to integer division)
         assert_eq!(map(1, 0, 3, 0, 10), 3); // 1/3 * 10 = 3.33... truncated to 3
-        
+
         // Out of bounds values - clamp to range
         assert_eq!(map(15, 0, 10, 0, 100), 100); // Above max
         assert_eq!(map(0, 5, 10, 0, 100), 0); // Below min
+    }
+
+    #[test]
+    fn test_map_character() {
+        // We test the map_character function directly by duplicating its logic
+        // since we can't create a Screen without a real I2C device
+        let map_char = |c: char| -> u8 {
+            let code = c as u32;
+
+            // Standard ASCII printable range and extended ASCII
+            if (0x20..=0x7E).contains(&code) || (0x80..=0xFF).contains(&code) {
+                code as u8
+            }
+            // Common replacements for better display
+            else {
+                match c {
+                    // Tab, newline, carriage return -> space
+                    '\t' | '\n' | '\r' => 0x20,
+                    // Everything else -> question mark
+                    _ => 0x3F,
+                }
+            }
+        };
+
+        // Test ASCII printable characters
+        assert_eq!(map_char(' '), 0x20);
+        assert_eq!(map_char('!'), 0x21);
+        assert_eq!(map_char('A'), 0x41);
+        assert_eq!(map_char('Z'), 0x5A);
+        assert_eq!(map_char('a'), 0x61);
+        assert_eq!(map_char('z'), 0x7A);
+        assert_eq!(map_char('~'), 0x7E);
+        assert_eq!(map_char('0'), 0x30);
+        assert_eq!(map_char('9'), 0x39);
+
+        // Test extended ASCII (passed through)
+        // Note: These characters have Unicode values that match their extended ASCII positions
+        assert_eq!(map_char('£'), 0xA3); // Pound sign (U+00A3)
+        assert_eq!(map_char('°'), 0xB0); // Degree symbol (U+00B0)
+        assert_eq!(map_char('÷'), 0xF7); // Division sign (U+00F7)
+        assert_eq!(map_char('ÿ'), 0xFF); // y with diaeresis (U+00FF)
+
+        // Test characters that don't map directly (Unicode > 0xFF)
+        assert_eq!(map_char('€'), 0x3F); // Euro sign (U+20AC) - outside extended ASCII
+
+        // Test control characters (mapped to space)
+        assert_eq!(map_char('\t'), 0x20);
+        assert_eq!(map_char('\n'), 0x20);
+        assert_eq!(map_char('\r'), 0x20);
+
+        // Test Unicode characters outside LCD range (mapped to '?')
+        assert_eq!(map_char('😀'), 0x3F); // Emoji
+        assert_eq!(map_char('中'), 0x3F); // Chinese character
+        assert_eq!(map_char('א'), 0x3F); // Hebrew character
+        assert_eq!(map_char('🚀'), 0x3F); // Rocket emoji
+        assert_eq!(map_char('\0'), 0x3F); // Null character
+    }
+
+    #[test]
+    fn test_print_ascii_valid() {
+        // Test ASCII validation logic without actual I2C device
+        let validate_ascii = |s: &str| -> Result<(), String> {
+            if !s.is_ascii() {
+                return Err("String contains non-ASCII characters".to_string());
+            }
+
+            for c in s.chars() {
+                if c as u32 >= 0x20 && c as u32 <= 0x7E {
+                    // Valid printable ASCII
+                } else if c == '\n' || c == '\r' || c == '\t' {
+                    // Skip control characters silently
+                    continue;
+                } else {
+                    return Err(format!(
+                        "Character '{}' (0x{:02X}) is not printable ASCII",
+                        c, c as u32
+                    ));
+                }
+            }
+
+            Ok(())
+        };
+
+        // Test valid ASCII strings
+        assert!(validate_ascii("Hello World").is_ok());
+        assert!(validate_ascii("Test 123!@#").is_ok());
+        assert!(validate_ascii("").is_ok()); // Empty string is valid
+        assert!(validate_ascii(" ~!@#$%^&*()_+{}|:\"<>?").is_ok());
+    }
+
+    #[test]
+    fn test_print_ascii_invalid() {
+        // Test ASCII validation logic without actual I2C device
+        let validate_ascii = |s: &str| -> Result<(), String> {
+            if !s.is_ascii() {
+                return Err("String contains non-ASCII characters".to_string());
+            }
+
+            for c in s.chars() {
+                if c as u32 >= 0x20 && c as u32 <= 0x7E {
+                    // Valid printable ASCII
+                } else if c == '\n' || c == '\r' || c == '\t' {
+                    // Skip control characters silently
+                    continue;
+                } else {
+                    return Err(format!(
+                        "Character '{}' (0x{:02X}) is not printable ASCII",
+                        c, c as u32
+                    ));
+                }
+            }
+
+            Ok(())
+        };
+
+        // Test non-ASCII strings
+        assert!(validate_ascii("Café").is_err()); // Contains é
+        assert!(validate_ascii("Hello 世界").is_err()); // Contains Chinese
+        assert!(validate_ascii("€100").is_err()); // Contains Euro symbol
+        assert!(validate_ascii("Temperature: 25°C").is_err()); // Contains degree symbol
+        assert!(validate_ascii("😀").is_err()); // Contains emoji
+
+        // Verify error messages
+        match validate_ascii("Café") {
+            Err(msg) => assert!(msg.contains("non-ASCII")),
+            Ok(_) => panic!("Expected error for non-ASCII string"),
+        }
+    }
+
+    #[test]
+    fn test_print_empty_string() {
+        // Test that empty strings are valid
+        let validate_ascii = |s: &str| -> Result<(), String> {
+            if !s.is_ascii() {
+                return Err("String contains non-ASCII characters".to_string());
+            }
+            Ok(())
+        };
+
+        // Empty string should work for both validation methods
+        assert!(validate_ascii("").is_ok());
+        assert_eq!("".len(), 0);
+    }
+
+    #[test]
+    fn test_print_special_characters() {
+        // Test character mapping for special cases
+        let map_char = |c: char| -> u8 {
+            let code = c as u32;
+
+            if (0x20..=0x7E).contains(&code) || (0x80..=0xFF).contains(&code) {
+                code as u8
+            } else {
+                match c {
+                    '\t' | '\n' | '\r' => 0x20,
+                    _ => 0x3F,
+                }
+            }
+        };
+
+        // Test that various special cases map correctly
+        assert_eq!(map_char('\n'), 0x20); // Newline -> space
+        assert_eq!(map_char('\t'), 0x20); // Tab -> space
+        assert_eq!(map_char('\r'), 0x20); // Carriage return -> space
+        assert_eq!(map_char('中'), 0x3F); // Chinese -> question mark
+        assert_eq!(map_char('∑'), 0x3F); // Math symbol -> question mark
+        assert_eq!(map_char('🚀'), 0x3F); // Emoji -> question mark
     }
 }

@@ -21,6 +21,34 @@ Or for the most recent commit on the master branch use:
 qwiic-lcd-rs = { git = "https://github.com/PixelCoda/QwiicLCD-Rust.git", version = "*" }
 ```
 
+## Error Handling
+
+This library now provides comprehensive error handling with automatic retry logic for transient I2C failures:
+
+### Custom Error Types
+- `QwiicLcdError::I2CError` - Wraps underlying I2C communication errors
+- `QwiicLcdError::InvalidPosition` - Invalid cursor position for screen dimensions
+- `QwiicLcdError::InvalidCharacter` - Non-ASCII character in print string
+- `QwiicLcdError::CommunicationTimeout` - Device didn't respond after retries
+- `QwiicLcdError::InitializationFailed` - Failed to initialize the LCD
+- `QwiicLcdError::InvalidCustomCharIndex` - Custom character index out of range (0-7)
+
+### Retry Configuration
+Configure automatic retry behavior for I2C operations:
+
+```rust
+use qwiic_lcd_rs::{ScreenConfig, RetryConfig};
+
+let retry_config = RetryConfig {
+    max_retries: 5,           // Try up to 5 times
+    initial_delay_ms: 20,      // Start with 20ms delay
+    backoff_multiplier: 1.5,   // Multiply delay by 1.5 each retry
+    max_delay_ms: 500,         // Cap delay at 500ms
+};
+
+let config = ScreenConfig::new_with_retry(4, 20, retry_config);
+```
+
 Example: 
 ```rust
 extern crate qwiic_lcd_rs;
@@ -61,6 +89,55 @@ fn main() {
 
     // Print text
     screen.print("It works! :)").unwrap();
+}
+```
+
+### Error Handling Example
+
+```rust
+use qwiic_lcd_rs::{Screen, ScreenConfig, QwiicLcdError};
+
+fn main() -> Result<(), QwiicLcdError> {
+    let config = ScreenConfig::default();
+    let mut screen = Screen::new(config, "/dev/i2c-1", 0x72)?;
+    
+    // Handle specific error types
+    match screen.move_cursor(10, 10) {
+        Ok(_) => println!("Cursor moved"),
+        Err(QwiicLcdError::InvalidPosition { row, col, .. }) => {
+            println!("Invalid position: ({}, {})", row, col);
+            screen.move_cursor(0, 0)?; // Move to valid position
+        },
+        Err(e) => return Err(e),
+    }
+    
+    // Print with character validation
+    match screen.print("Hello 😀") {
+        Ok(_) => println!("Text printed"),
+        Err(QwiicLcdError::InvalidCharacter(c)) => {
+            println!("Invalid character: {}", c);
+            screen.print("Hello :)")?; // Use ASCII alternative
+        },
+        Err(e) => return Err(e),
+    }
+    
+    // Create custom character
+    let heart = [
+        0b00000,
+        0b01010,
+        0b11111,
+        0b11111,
+        0b01110,
+        0b00100,
+        0b00000,
+        0b00000,
+    ];
+    screen.create_character(0, heart)?;
+    
+    // Set contrast
+    screen.set_contrast(128)?;
+    
+    Ok(())
 }
 ```
 

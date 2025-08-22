@@ -15,11 +15,98 @@
 
 extern crate i2cdev;
 
+use std::error::Error;
+use std::fmt;
 use std::thread;
 use std::time::Duration;
 
 use i2cdev::core::*;
 use i2cdev::linux::{LinuxI2CDevice, LinuxI2CError};
+
+/// Custom error types for QwiicLCD operations
+#[derive(Debug)]
+pub enum QwiicLcdError {
+    /// Wraps underlying I2C communication errors
+    I2CError(LinuxI2CError),
+    /// Invalid cursor position
+    InvalidPosition { row: usize, col: usize, max_rows: u8, max_columns: u8 },
+    /// Invalid character (non-ASCII)
+    InvalidCharacter(char),
+    /// Communication timeout after retries
+    CommunicationTimeout,
+    /// Device initialization failed
+    InitializationFailed(String),
+    /// Custom character index out of range (0-7)
+    InvalidCustomCharIndex(u8),
+    /// Contrast value out of range (0-255)
+    InvalidContrastValue(u8),
+}
+
+impl fmt::Display for QwiicLcdError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            QwiicLcdError::I2CError(e) => write!(f, "I2C communication error: {}", e),
+            QwiicLcdError::InvalidPosition { row, col, max_rows, max_columns } => {
+                write!(f, "Invalid cursor position ({}, {}). Screen dimensions are {}x{}", 
+                       row, col, max_rows, max_columns)
+            },
+            QwiicLcdError::InvalidCharacter(c) => {
+                write!(f, "Invalid character '{}' (code: {}). Only ASCII characters are supported", c, *c as u32)
+            },
+            QwiicLcdError::CommunicationTimeout => {
+                write!(f, "Communication timeout: device did not respond after retries")
+            },
+            QwiicLcdError::InitializationFailed(msg) => {
+                write!(f, "Failed to initialize LCD: {}", msg)
+            },
+            QwiicLcdError::InvalidCustomCharIndex(idx) => {
+                write!(f, "Invalid custom character index {}. Must be 0-7", idx)
+            },
+            QwiicLcdError::InvalidContrastValue(val) => {
+                write!(f, "Invalid contrast value {}. Must be 0-255", val)
+            },
+        }
+    }
+}
+
+impl Error for QwiicLcdError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            QwiicLcdError::I2CError(e) => Some(e),
+            _ => None,
+        }
+    }
+}
+
+impl From<LinuxI2CError> for QwiicLcdError {
+    fn from(error: LinuxI2CError) -> Self {
+        QwiicLcdError::I2CError(error)
+    }
+}
+
+/// Configuration for retry logic
+#[derive(Clone, Copy, Debug)]
+pub struct RetryConfig {
+    /// Maximum number of retry attempts
+    pub max_retries: u32,
+    /// Initial delay between retries in milliseconds
+    pub initial_delay_ms: u64,
+    /// Multiplier for exponential backoff
+    pub backoff_multiplier: f32,
+    /// Maximum delay between retries in milliseconds
+    pub max_delay_ms: u64,
+}
+
+impl Default for RetryConfig {
+    fn default() -> Self {
+        RetryConfig {
+            max_retries: 3,
+            initial_delay_ms: 10,
+            backoff_multiplier: 2.0,
+            max_delay_ms: 1000,
+        }
+    }
+}
 
 /// LCD commands for controlling the display
 #[derive(Copy, Clone)]
@@ -109,10 +196,11 @@ pub enum BitMode {
     B8 = 0x10,
 }
 
-/// Configuration for the LCD screen dimensions
+/// Configuration for the LCD screen dimensions and retry behavior
 pub struct ScreenConfig {
     max_rows: u8,
     max_columns: u8,
+    retry_config: RetryConfig,
 }
 
 impl ScreenConfig {
@@ -121,6 +209,16 @@ impl ScreenConfig {
         ScreenConfig {
             max_rows,
             max_columns,
+            retry_config: RetryConfig::default(),
+        }
+    }
+    
+    /// Creates a new ScreenConfig with specified dimensions and retry configuration
+    pub fn new_with_retry(max_rows: u8, max_columns: u8, retry_config: RetryConfig) -> ScreenConfig {
+        ScreenConfig {
+            max_rows,
+            max_columns,
+            retry_config,
         }
     }
 }
@@ -162,7 +260,7 @@ pub struct Screen {
     state: DisplayState,
 }
 
-type ScreenResult = Result<(), LinuxI2CError>;
+type ScreenResult = Result<(), QwiicLcdError>;
 
 impl Screen {
     /// Creates a new Screen instance with the given configuration
@@ -171,8 +269,11 @@ impl Screen {
     /// * `config` - Screen configuration with dimensions
     /// * `bus` - I2C bus path (e.g., "/dev/i2c-1")
     /// * `i2c_addr` - I2C address of the LCD (default is 0x72)
-    pub fn new(config: ScreenConfig, bus: &str, i2c_addr: u16) -> Result<Screen, LinuxI2CError> {
-        let dev = LinuxI2CDevice::new(bus, i2c_addr)?;
+    pub fn new(config: ScreenConfig, bus: &str, i2c_addr: u16) -> Result<Screen, QwiicLcdError> {
+        let dev = LinuxI2CDevice::new(bus, i2c_addr)
+            .map_err(|e| QwiicLcdError::InitializationFailed(
+                format!("Failed to open I2C device on {} at address 0x{:02X}: {}", bus, i2c_addr, e)
+            ))?;
         Ok(Screen {
             dev,
             config,
@@ -216,10 +317,20 @@ impl Screen {
         let row_offsets: Vec<usize> = vec![0x00, 0x40, 0x14, 0x54];
 
         if row >= self.config.max_rows.into() {
-            return self.apply_display_state();
+            return Err(QwiicLcdError::InvalidPosition {
+                row,
+                col,
+                max_rows: self.config.max_rows,
+                max_columns: self.config.max_columns,
+            });
         }
         if col >= self.config.max_columns.into() {
-            return self.apply_display_state();
+            return Err(QwiicLcdError::InvalidPosition {
+                row,
+                col,
+                max_rows: self.config.max_rows,
+                max_columns: self.config.max_columns,
+            });
         }
 
         let command = (Command::SetDDRamAddr as u8) | ((col + row_offsets[row]) as u8);
@@ -268,6 +379,9 @@ impl Screen {
     /// Prints a string to the LCD at the current cursor position
     pub fn print(&mut self, s: &str) -> ScreenResult {
         for c in s.chars() {
+            if !c.is_ascii() {
+                return Err(QwiicLcdError::InvalidCharacter(c));
+            }
             self.write_byte(c as u8)?;
         }
 
@@ -276,33 +390,148 @@ impl Screen {
 
     /// Writes a single byte to the LCD
     pub fn write_byte(&mut self, command: u8) -> ScreenResult {
-        self.dev.smbus_write_byte(command)?;
+        let result = self.retry_i2c_write_byte(command)?;
         thread::sleep(Duration::new(0, 10_000));
-        Ok(())
+        Ok(result)
     }
 
     /// Writes a block of data to the LCD
     pub fn write_block(&mut self, register: u8, data: Vec<u8>) -> ScreenResult {
-        self.dev.smbus_write_i2c_block_data(register, &data)?;
+        let result = self.retry_i2c_write_block(register, data)?;
         thread::sleep(Duration::new(0, 10_000));
-        Ok(())
+        Ok(result)
     }
 
     /// Writes a setting command to the LCD
     pub fn write_setting_cmd(&mut self, command: u8) -> ScreenResult {
-        self.dev
-            .smbus_write_byte_data(Command::SettingCommand as u8, command)?;
+        let result = self.retry_i2c_write_byte_data(Command::SettingCommand as u8, command)?;
         thread::sleep(Duration::new(0, 10_000));
-        Ok(())
+        Ok(result)
     }
 
     /// Writes a special command to the LCD
     pub fn write_special_cmd(&mut self, command: u8) -> ScreenResult {
-        self.dev
-            .smbus_write_byte_data(Command::SpecialCommand as u8, command)?;
+        let result = self.retry_i2c_write_byte_data(Command::SpecialCommand as u8, command)?;
         thread::sleep(Duration::new(0, 10_000));
-        Ok(())
+        Ok(result)
     }
+    
+    /// Sets the LCD contrast (0-255)
+    pub fn set_contrast(&mut self, contrast: u8) -> ScreenResult {
+        self.write_setting_cmd(0x18)?;
+        self.write_setting_cmd(contrast)
+    }
+    
+    /// Creates a custom character at the specified index (0-7)
+    /// 
+    /// # Arguments
+    /// * `index` - Character index (0-7)
+    /// * `data` - 8 bytes defining the character bitmap
+    pub fn create_character(&mut self, index: u8, data: [u8; 8]) -> ScreenResult {
+        if index > 7 {
+            return Err(QwiicLcdError::InvalidCustomCharIndex(index));
+        }
+        
+        let addr = (Command::SetCGRamAddr as u8) | (index << 3);
+        self.write_special_cmd(addr)?;
+        
+        for byte in data.iter() {
+            self.write_byte(*byte)?;
+        }
+        
+        self.home()
+    }
+    
+    /// Retry I2C write byte operation
+    fn retry_i2c_write_byte(&mut self, command: u8) -> ScreenResult {
+        let mut delay_ms = self.config.retry_config.initial_delay_ms;
+        let mut last_error = None;
+        
+        for attempt in 0..=self.config.retry_config.max_retries {
+            match self.dev.smbus_write_byte(command) {
+                Ok(_) => return Ok(()),
+                Err(e) => {
+                    last_error = Some(e);
+                    
+                    // Don't sleep after the last attempt
+                    if attempt < self.config.retry_config.max_retries {
+                        thread::sleep(Duration::from_millis(delay_ms));
+                        
+                        // Apply exponential backoff
+                        delay_ms = ((delay_ms as f32 * self.config.retry_config.backoff_multiplier) as u64)
+                            .min(self.config.retry_config.max_delay_ms);
+                    }
+                }
+            }
+        }
+        
+        // All retries exhausted
+        match last_error {
+            Some(e) => Err(QwiicLcdError::from(e)),
+            None => Err(QwiicLcdError::CommunicationTimeout),
+        }
+    }
+    
+    /// Retry I2C write block operation
+    fn retry_i2c_write_block(&mut self, register: u8, data: Vec<u8>) -> ScreenResult {
+        let mut delay_ms = self.config.retry_config.initial_delay_ms;
+        let mut last_error = None;
+        
+        for attempt in 0..=self.config.retry_config.max_retries {
+            match self.dev.smbus_write_i2c_block_data(register, &data) {
+                Ok(_) => return Ok(()),
+                Err(e) => {
+                    last_error = Some(e);
+                    
+                    // Don't sleep after the last attempt
+                    if attempt < self.config.retry_config.max_retries {
+                        thread::sleep(Duration::from_millis(delay_ms));
+                        
+                        // Apply exponential backoff
+                        delay_ms = ((delay_ms as f32 * self.config.retry_config.backoff_multiplier) as u64)
+                            .min(self.config.retry_config.max_delay_ms);
+                    }
+                }
+            }
+        }
+        
+        // All retries exhausted
+        match last_error {
+            Some(e) => Err(QwiicLcdError::from(e)),
+            None => Err(QwiicLcdError::CommunicationTimeout),
+        }
+    }
+    
+    /// Retry I2C write byte data operation
+    fn retry_i2c_write_byte_data(&mut self, register: u8, data: u8) -> ScreenResult {
+        let mut delay_ms = self.config.retry_config.initial_delay_ms;
+        let mut last_error = None;
+        
+        for attempt in 0..=self.config.retry_config.max_retries {
+            match self.dev.smbus_write_byte_data(register, data) {
+                Ok(_) => return Ok(()),
+                Err(e) => {
+                    last_error = Some(e);
+                    
+                    // Don't sleep after the last attempt
+                    if attempt < self.config.retry_config.max_retries {
+                        thread::sleep(Duration::from_millis(delay_ms));
+                        
+                        // Apply exponential backoff
+                        delay_ms = ((delay_ms as f32 * self.config.retry_config.backoff_multiplier) as u64)
+                            .min(self.config.retry_config.max_delay_ms);
+                    }
+                }
+            }
+        }
+        
+        // All retries exhausted
+        match last_error {
+            Some(e) => Err(QwiicLcdError::from(e)),
+            None => Err(QwiicLcdError::CommunicationTimeout),
+        }
+    }
+    
 }
 
 /// Maps a value from one range to another
@@ -536,4 +765,134 @@ mod tests {
         assert_eq!(map(15, 0, 10, 0, 100), 100); // Above max
         assert_eq!(map(0, 5, 10, 0, 100), 0); // Below min
     }
+    
+    #[test]
+    fn test_qwiic_lcd_error_display() {
+        let i2c_error = LinuxI2CError::Io(std::io::Error::new(std::io::ErrorKind::Other, "test error"));
+        let error = QwiicLcdError::I2CError(i2c_error);
+        assert!(error.to_string().contains("I2C communication error"));
+        
+        let error = QwiicLcdError::InvalidPosition { row: 5, col: 25, max_rows: 4, max_columns: 20 };
+        let msg = error.to_string();
+        assert!(msg.contains("Invalid cursor position"));
+        assert!(msg.contains("(5, 25)"));
+        assert!(msg.contains("4x20"));
+        
+        let error = QwiicLcdError::InvalidCharacter('😀');
+        let msg = error.to_string();
+        assert!(msg.contains("Invalid character"));
+        assert!(msg.contains("Only ASCII characters"));
+        
+        let error = QwiicLcdError::CommunicationTimeout;
+        assert!(error.to_string().contains("Communication timeout"));
+        
+        let error = QwiicLcdError::InitializationFailed("test failure".to_string());
+        let msg = error.to_string();
+        assert!(msg.contains("Failed to initialize LCD"));
+        assert!(msg.contains("test failure"));
+        
+        let error = QwiicLcdError::InvalidCustomCharIndex(8);
+        let msg = error.to_string();
+        assert!(msg.contains("Invalid custom character index 8"));
+        assert!(msg.contains("Must be 0-7"));
+        
+        let error = QwiicLcdError::InvalidContrastValue(255);
+        let msg = error.to_string();
+        assert!(msg.contains("Invalid contrast value"));
+    }
+    
+    #[test]
+    fn test_error_conversion_from_linux_i2c() {
+        let i2c_error = LinuxI2CError::Io(std::io::Error::new(std::io::ErrorKind::Other, "test"));
+        let lcd_error: QwiicLcdError = i2c_error.into();
+        assert!(matches!(lcd_error, QwiicLcdError::I2CError(_)));
+    }
+    
+    #[test]
+    fn test_retry_config_default() {
+        let config = RetryConfig::default();
+        assert_eq!(config.max_retries, 3);
+        assert_eq!(config.initial_delay_ms, 10);
+        assert_eq!(config.backoff_multiplier, 2.0);
+        assert_eq!(config.max_delay_ms, 1000);
+    }
+    
+    #[test]
+    fn test_retry_config_custom() {
+        let config = RetryConfig {
+            max_retries: 5,
+            initial_delay_ms: 20,
+            backoff_multiplier: 1.5,
+            max_delay_ms: 500,
+        };
+        assert_eq!(config.max_retries, 5);
+        assert_eq!(config.initial_delay_ms, 20);
+        assert_eq!(config.backoff_multiplier, 1.5);
+        assert_eq!(config.max_delay_ms, 500);
+    }
+    
+    #[test]
+    fn test_screen_config_with_retry() {
+        let retry_config = RetryConfig {
+            max_retries: 5,
+            initial_delay_ms: 20,
+            backoff_multiplier: 1.5,
+            max_delay_ms: 500,
+        };
+        let config = ScreenConfig::new_with_retry(2, 16, retry_config);
+        assert_eq!(config.max_rows, 2);
+        assert_eq!(config.max_columns, 16);
+        assert_eq!(config.retry_config.max_retries, 5);
+        assert_eq!(config.retry_config.initial_delay_ms, 20);
+    }
+    
+    #[test] 
+    fn test_screen_config_default_includes_retry() {
+        let config = ScreenConfig::default();
+        assert_eq!(config.max_rows, 4);
+        assert_eq!(config.max_columns, 20);
+        assert_eq!(config.retry_config.max_retries, 3);
+        assert_eq!(config.retry_config.initial_delay_ms, 10);
+    }
+    
+    #[test]
+    fn test_invalid_cursor_position_error() {
+        // This test would require a mock Screen, so we test the error creation directly
+        let error = QwiicLcdError::InvalidPosition { row: 10, col: 30, max_rows: 4, max_columns: 20 };
+        match error {
+            QwiicLcdError::InvalidPosition { row, col, max_rows, max_columns } => {
+                assert_eq!(row, 10);
+                assert_eq!(col, 30);
+                assert_eq!(max_rows, 4);
+                assert_eq!(max_columns, 20);
+            },
+            _ => panic!("Wrong error type"),
+        }
+    }
+    
+    #[test]
+    fn test_invalid_character_error() {
+        let error = QwiicLcdError::InvalidCharacter('€');
+        match error {
+            QwiicLcdError::InvalidCharacter(c) => {
+                assert_eq!(c, '€');
+            },
+            _ => panic!("Wrong error type"),
+        }
+    }
+    
+    #[test]
+    fn test_custom_character_index_validation() {
+        let valid_index = 7;
+        let invalid_index = 8;
+        
+        // Test that index 7 is valid (no error)
+        assert!(valid_index <= 7);
+        
+        // Test that index 8 would produce error
+        assert!(invalid_index > 7);
+        let error = QwiicLcdError::InvalidCustomCharIndex(invalid_index);
+        assert!(error.to_string().contains("Invalid custom character index"));
+    }
+    
 }

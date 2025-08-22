@@ -303,6 +303,157 @@ impl Screen {
         thread::sleep(Duration::new(0, 10_000));
         Ok(())
     }
+
+    /// Sets the entry mode for text display (left-to-right or right-to-left)
+    ///
+    /// # Arguments
+    /// * `mode` - The entry mode direction (Left or Right)
+    ///
+    /// # Example
+    /// ```no_run
+    /// # use qwiic_lcd_rs::*;
+    /// # let mut screen = Screen::new(ScreenConfig::default(), "/dev/i2c-1", 0x72).unwrap();
+    /// screen.set_entry_mode(EntryMode::Left).unwrap(); // Text flows left-to-right
+    /// screen.set_entry_mode(EntryMode::Right).unwrap(); // Text flows right-to-left
+    /// ```
+    pub fn set_entry_mode(&mut self, mode: EntryMode) -> ScreenResult {
+        let command = Command::EntryModeSet as u8 | mode as u8 | EntryShift::Increment as u8;
+        self.write_special_cmd(command)
+    }
+
+    /// Sets the entry shift behavior when displaying text
+    ///
+    /// # Arguments
+    /// * `shift` - The shift direction (Increment or Decrement)
+    ///
+    /// # Example
+    /// ```no_run
+    /// # use qwiic_lcd_rs::*;
+    /// # let mut screen = Screen::new(ScreenConfig::default(), "/dev/i2c-1", 0x72).unwrap();
+    /// screen.set_entry_shift(EntryShift::Increment).unwrap(); // Cursor moves forward
+    /// screen.set_entry_shift(EntryShift::Decrement).unwrap(); // Cursor moves backward
+    /// ```
+    pub fn set_entry_shift(&mut self, shift: EntryShift) -> ScreenResult {
+        let command = Command::EntryModeSet as u8 | EntryMode::Left as u8 | shift as u8;
+        self.write_special_cmd(command)
+    }
+
+    /// Shifts the cursor left or right
+    ///
+    /// # Arguments
+    /// * `direction` - The direction to shift (Left or Right)
+    ///
+    /// # Example
+    /// ```no_run
+    /// # use qwiic_lcd_rs::*;
+    /// # let mut screen = Screen::new(ScreenConfig::default(), "/dev/i2c-1", 0x72).unwrap();
+    /// screen.shift_cursor(MoveDirection::Right).unwrap(); // Move cursor right
+    /// screen.shift_cursor(MoveDirection::Left).unwrap(); // Move cursor left
+    /// ```
+    pub fn shift_cursor(&mut self, direction: MoveDirection) -> ScreenResult {
+        let command = Command::CursorShift as u8 | MoveType::Cursor as u8 | direction as u8;
+        self.write_special_cmd(command)
+    }
+
+    /// Shifts the display left or right without moving the cursor
+    ///
+    /// # Arguments
+    /// * `direction` - The direction to shift (Left or Right)
+    ///
+    /// # Example
+    /// ```no_run
+    /// # use qwiic_lcd_rs::*;
+    /// # let mut screen = Screen::new(ScreenConfig::default(), "/dev/i2c-1", 0x72).unwrap();
+    /// screen.shift_display(MoveDirection::Right).unwrap(); // Shift display right
+    /// screen.shift_display(MoveDirection::Left).unwrap(); // Shift display left
+    /// ```
+    pub fn shift_display(&mut self, direction: MoveDirection) -> ScreenResult {
+        let command = Command::CursorShift as u8 | MoveType::Display as u8 | direction as u8;
+        self.write_special_cmd(command)
+    }
+
+    /// Sets the backlight state (on or off)
+    ///
+    /// # Arguments
+    /// * `state` - The backlight state (On or Off)
+    ///
+    /// # Example
+    /// ```no_run
+    /// # use qwiic_lcd_rs::*;
+    /// # let mut screen = Screen::new(ScreenConfig::default(), "/dev/i2c-1", 0x72).unwrap();
+    /// screen.set_backlight_state(Backlight::Off).unwrap(); // Turn backlight off
+    /// screen.set_backlight_state(Backlight::On).unwrap(); // Turn backlight on
+    /// ```
+    pub fn set_backlight_state(&mut self, state: Backlight) -> ScreenResult {
+        match state {
+            Backlight::On => self.change_backlight(255, 255, 255),
+            Backlight::Off => self.change_backlight(0, 0, 0),
+        }
+    }
+
+    /// Sets the contrast level of the display
+    ///
+    /// # Arguments
+    /// * `level` - Contrast level (0-255)
+    ///
+    /// # Example
+    /// ```no_run
+    /// # use qwiic_lcd_rs::*;
+    /// # let mut screen = Screen::new(ScreenConfig::default(), "/dev/i2c-1", 0x72).unwrap();
+    /// screen.set_contrast(128).unwrap(); // Set contrast to middle value
+    /// screen.set_contrast(255).unwrap(); // Set contrast to maximum
+    /// ```
+    pub fn set_contrast(&mut self, level: u8) -> ScreenResult {
+        self.write_setting_cmd(0x18 | (level >> 4))?;
+        self.write_setting_cmd(0x10 | (level & 0x0F))
+    }
+
+    /// Creates a custom character in CGRAM
+    ///
+    /// # Arguments
+    /// * `location` - CGRAM location (0-7)
+    /// * `pattern` - 8-byte pattern defining the character
+    ///
+    /// # Example
+    /// ```no_run
+    /// # use qwiic_lcd_rs::*;
+    /// # let mut screen = Screen::new(ScreenConfig::default(), "/dev/i2c-1", 0x72).unwrap();
+    /// let heart = [0x00, 0x0A, 0x1F, 0x1F, 0x0E, 0x04, 0x00, 0x00];
+    /// screen.create_character(0, &heart).unwrap();
+    /// screen.write_byte(0).unwrap(); // Display the custom character
+    /// ```
+    pub fn create_character(&mut self, location: u8, pattern: &[u8; 8]) -> ScreenResult {
+        if location > 7 {
+            return Ok(());
+        }
+        
+        let command = Command::SetCGRamAddr as u8 | (location << 3);
+        self.write_special_cmd(command)?;
+        
+        for &byte in pattern.iter() {
+            self.write_byte(byte)?;
+        }
+        
+        self.home()
+    }
+
+    /// Configures the bit mode of the display (4-bit or 8-bit)
+    ///
+    /// # Arguments
+    /// * `mode` - The bit mode (B4 or B8)
+    ///
+    /// # Example
+    /// ```no_run
+    /// # use qwiic_lcd_rs::*;
+    /// # let mut screen = Screen::new(ScreenConfig::default(), "/dev/i2c-1", 0x72).unwrap();
+    /// screen.configure_bit_mode(BitMode::B8).unwrap(); // Set to 8-bit mode
+    /// screen.configure_bit_mode(BitMode::B4).unwrap(); // Set to 4-bit mode
+    /// ```
+    pub fn configure_bit_mode(&mut self, mode: BitMode) -> ScreenResult {
+        // Configure function set with bit mode, 2-line display, and 5x8 font
+        let command = Command::FunctionSet as u8 | mode as u8 | 0x08 | 0x00;
+        self.write_special_cmd(command)
+    }
 }
 
 /// Maps a value from one range to another
@@ -535,5 +686,239 @@ mod tests {
         // Out of bounds values - clamp to range
         assert_eq!(map(15, 0, 10, 0, 100), 100); // Above max
         assert_eq!(map(0, 5, 10, 0, 100), 0); // Below min
+    }
+
+    #[test]
+    #[ignore] // This test requires hardware
+    fn test_set_entry_mode() {
+        let config = ScreenConfig::default();
+        let mut screen = Screen::new(config, "/dev/i2c-1", 0x72).expect("Could not init device");
+        
+        // Test left-to-right mode
+        screen.set_entry_mode(EntryMode::Left).unwrap();
+        screen.clear().unwrap();
+        screen.print("LTR").unwrap();
+        thread::sleep(Duration::from_millis(500));
+        
+        // Test right-to-left mode
+        screen.set_entry_mode(EntryMode::Right).unwrap();
+        screen.clear().unwrap();
+        screen.print("RTL").unwrap();
+        thread::sleep(Duration::from_millis(500));
+        
+        // Reset to left-to-right
+        screen.set_entry_mode(EntryMode::Left).unwrap();
+    }
+
+    #[test]
+    #[ignore] // This test requires hardware
+    fn test_set_entry_shift() {
+        let config = ScreenConfig::default();
+        let mut screen = Screen::new(config, "/dev/i2c-1", 0x72).expect("Could not init device");
+        
+        // Test increment shift
+        screen.set_entry_shift(EntryShift::Increment).unwrap();
+        screen.clear().unwrap();
+        screen.print("Inc").unwrap();
+        thread::sleep(Duration::from_millis(500));
+        
+        // Test decrement shift
+        screen.set_entry_shift(EntryShift::Decrement).unwrap();
+        screen.clear().unwrap();
+        screen.move_cursor(0, 10).unwrap();
+        screen.print("Dec").unwrap();
+        thread::sleep(Duration::from_millis(500));
+        
+        // Reset to increment
+        screen.set_entry_shift(EntryShift::Increment).unwrap();
+    }
+
+    #[test]
+    #[ignore] // This test requires hardware
+    fn test_shift_cursor() {
+        let config = ScreenConfig::default();
+        let mut screen = Screen::new(config, "/dev/i2c-1", 0x72).expect("Could not init device");
+        
+        screen.clear().unwrap();
+        screen.print("Cursor").unwrap();
+        
+        // Test shifting cursor right
+        for _ in 0..3 {
+            screen.shift_cursor(MoveDirection::Right).unwrap();
+            thread::sleep(Duration::from_millis(200));
+        }
+        
+        // Test shifting cursor left
+        for _ in 0..6 {
+            screen.shift_cursor(MoveDirection::Left).unwrap();
+            thread::sleep(Duration::from_millis(200));
+        }
+        
+        screen.print("!").unwrap();
+    }
+
+    #[test]
+    #[ignore] // This test requires hardware
+    fn test_shift_display() {
+        let config = ScreenConfig::default();
+        let mut screen = Screen::new(config, "/dev/i2c-1", 0x72).expect("Could not init device");
+        
+        screen.clear().unwrap();
+        screen.print("Display Shift Test").unwrap();
+        thread::sleep(Duration::from_millis(500));
+        
+        // Test shifting display right
+        for _ in 0..5 {
+            screen.shift_display(MoveDirection::Right).unwrap();
+            thread::sleep(Duration::from_millis(200));
+        }
+        
+        // Test shifting display left
+        for _ in 0..10 {
+            screen.shift_display(MoveDirection::Left).unwrap();
+            thread::sleep(Duration::from_millis(200));
+        }
+        
+        // Return to normal position
+        for _ in 0..5 {
+            screen.shift_display(MoveDirection::Right).unwrap();
+            thread::sleep(Duration::from_millis(200));
+        }
+    }
+
+    #[test]
+    #[ignore] // This test requires hardware
+    fn test_set_backlight_state() {
+        let config = ScreenConfig::default();
+        let mut screen = Screen::new(config, "/dev/i2c-1", 0x72).expect("Could not init device");
+        
+        screen.clear().unwrap();
+        screen.print("Backlight Test").unwrap();
+        
+        // Test backlight off
+        screen.set_backlight_state(Backlight::Off).unwrap();
+        thread::sleep(Duration::from_secs(1));
+        
+        // Test backlight on
+        screen.set_backlight_state(Backlight::On).unwrap();
+        thread::sleep(Duration::from_secs(1));
+        
+        // Toggle a few times
+        for _ in 0..3 {
+            screen.set_backlight_state(Backlight::Off).unwrap();
+            thread::sleep(Duration::from_millis(300));
+            screen.set_backlight_state(Backlight::On).unwrap();
+            thread::sleep(Duration::from_millis(300));
+        }
+    }
+
+    #[test]
+    #[ignore] // This test requires hardware
+    fn test_set_contrast() {
+        let config = ScreenConfig::default();
+        let mut screen = Screen::new(config, "/dev/i2c-1", 0x72).expect("Could not init device");
+        
+        screen.clear().unwrap();
+        screen.print("Contrast Test").unwrap();
+        
+        // Test various contrast levels
+        let levels = [0, 64, 128, 192, 255];
+        for level in levels.iter() {
+            screen.set_contrast(*level).unwrap();
+            thread::sleep(Duration::from_millis(500));
+        }
+        
+        // Reset to default contrast
+        screen.set_contrast(128).unwrap();
+    }
+
+    #[test]
+    #[ignore] // This test requires hardware
+    fn test_create_character() {
+        let config = ScreenConfig::default();
+        let mut screen = Screen::new(config, "/dev/i2c-1", 0x72).expect("Could not init device");
+        
+        // Define custom characters
+        let heart = [0x00, 0x0A, 0x1F, 0x1F, 0x0E, 0x04, 0x00, 0x00];
+        let smiley = [0x00, 0x00, 0x0A, 0x00, 0x11, 0x0E, 0x00, 0x00];
+        let arrow = [0x00, 0x04, 0x06, 0x1F, 0x06, 0x04, 0x00, 0x00];
+        
+        // Create custom characters
+        screen.create_character(0, &heart).unwrap();
+        screen.create_character(1, &smiley).unwrap();
+        screen.create_character(2, &arrow).unwrap();
+        
+        // Display custom characters
+        screen.clear().unwrap();
+        screen.print("Custom: ").unwrap();
+        screen.write_byte(0).unwrap(); // Heart
+        screen.write_byte(1).unwrap(); // Smiley
+        screen.write_byte(2).unwrap(); // Arrow
+        
+        thread::sleep(Duration::from_secs(2));
+    }
+
+    #[test]
+    #[ignore] // This test requires hardware
+    fn test_configure_bit_mode() {
+        let config = ScreenConfig::default();
+        let mut screen = Screen::new(config, "/dev/i2c-1", 0x72).expect("Could not init device");
+        
+        // Test 8-bit mode
+        screen.configure_bit_mode(BitMode::B8).unwrap();
+        screen.clear().unwrap();
+        screen.print("8-bit mode").unwrap();
+        thread::sleep(Duration::from_secs(1));
+        
+        // Test 4-bit mode
+        screen.configure_bit_mode(BitMode::B4).unwrap();
+        screen.clear().unwrap();
+        screen.print("4-bit mode").unwrap();
+        thread::sleep(Duration::from_secs(1));
+        
+        // Reset to 8-bit mode (typically default)
+        screen.configure_bit_mode(BitMode::B8).unwrap();
+    }
+
+    #[test]
+    #[ignore] // This test requires hardware - comprehensive integration test
+    fn test_all_new_features() {
+        let config = ScreenConfig::default();
+        let mut screen = Screen::new(config, "/dev/i2c-1", 0x72).expect("Could not init device");
+        
+        // Initialize and clear
+        screen.init().unwrap();
+        screen.clear().unwrap();
+        
+        // Test entry modes
+        screen.set_entry_mode(EntryMode::Left).unwrap();
+        screen.print("Entry Test").unwrap();
+        thread::sleep(Duration::from_millis(500));
+        
+        // Test cursor shifting
+        screen.shift_cursor(MoveDirection::Left).unwrap();
+        screen.shift_cursor(MoveDirection::Left).unwrap();
+        screen.print("!").unwrap();
+        thread::sleep(Duration::from_millis(500));
+        
+        // Test display shifting
+        screen.shift_display(MoveDirection::Right).unwrap();
+        thread::sleep(Duration::from_millis(500));
+        screen.shift_display(MoveDirection::Left).unwrap();
+        thread::sleep(Duration::from_millis(500));
+        
+        // Test backlight control
+        screen.set_backlight_state(Backlight::Off).unwrap();
+        thread::sleep(Duration::from_millis(500));
+        screen.set_backlight_state(Backlight::On).unwrap();
+        
+        // Test custom characters
+        let check = [0x00, 0x01, 0x03, 0x16, 0x1C, 0x08, 0x00, 0x00];
+        screen.create_character(3, &check).unwrap();
+        screen.clear().unwrap();
+        screen.print("Complete ").unwrap();
+        screen.write_byte(3).unwrap(); // Display checkmark
+        
+        thread::sleep(Duration::from_secs(2));
     }
 }

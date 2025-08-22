@@ -9,6 +9,19 @@ bus.
 
 Currently I only have access to the 20x4 LCD for testing purposes. If you have issues with other Qwiic LCDs please submit an issue or a pull request.
 
+## Testing
+
+This library includes comprehensive unit tests using mock I2C devices, allowing tests to run without physical hardware. See [TESTING.md](TESTING.md) for detailed testing documentation.
+
+```bash
+# Run all tests (no hardware required)
+cargo test
+
+# Run with coverage report
+cargo install cargo-tarpaulin
+cargo tarpaulin
+```
+
 ## How to use library
 
 Add the following line to your cargo.toml:

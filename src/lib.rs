@@ -15,11 +15,18 @@
 
 extern crate i2cdev;
 
+mod i2c_device;
+
 use std::thread;
 use std::time::Duration;
 
-use i2cdev::core::*;
-use i2cdev::linux::{LinuxI2CDevice, LinuxI2CError};
+use i2c_device::{I2CDevice, I2CError, LinuxI2CDeviceWrapper};
+
+#[cfg(test)]
+pub use i2c_device::{MockI2CDevice, I2CCommand};
+
+#[cfg(test)]
+mod screen_tests;
 
 /// LCD commands for controlling the display
 #[derive(Copy, Clone)]
@@ -156,28 +163,39 @@ impl Default for DisplayState {
 }
 
 /// Main struct for controlling the QwiicLCD screen via I2C
-pub struct Screen {
-    dev: LinuxI2CDevice,
+pub struct Screen<D: I2CDevice> {
+    dev: D,
     config: ScreenConfig,
     state: DisplayState,
 }
 
-type ScreenResult = Result<(), LinuxI2CError>;
+type ScreenResult = Result<(), I2CError>;
 
-impl Screen {
+impl Screen<LinuxI2CDeviceWrapper> {
     /// Creates a new Screen instance with the given configuration
     ///
     /// # Arguments
     /// * `config` - Screen configuration with dimensions
     /// * `bus` - I2C bus path (e.g., "/dev/i2c-1")
     /// * `i2c_addr` - I2C address of the LCD (default is 0x72)
-    pub fn new(config: ScreenConfig, bus: &str, i2c_addr: u16) -> Result<Screen, LinuxI2CError> {
-        let dev = LinuxI2CDevice::new(bus, i2c_addr)?;
+    pub fn new(config: ScreenConfig, bus: &str, i2c_addr: u16) -> Result<Screen<LinuxI2CDeviceWrapper>, I2CError> {
+        let dev = LinuxI2CDeviceWrapper::new(bus, i2c_addr)?;
         Ok(Screen {
             dev,
             config,
             state: DisplayState::default(),
         })
+    }
+}
+
+impl<D: I2CDevice> Screen<D> {
+    /// Creates a new Screen instance with a custom I2C device
+    pub fn new_with_device(config: ScreenConfig, dev: D) -> Screen<D> {
+        Screen {
+            dev,
+            config,
+            state: DisplayState::default(),
+        }
     }
 
     /// Initializes the LCD screen with default settings
@@ -302,6 +320,76 @@ impl Screen {
             .smbus_write_byte_data(Command::SpecialCommand as u8, command)?;
         thread::sleep(Duration::new(0, 10_000));
         Ok(())
+    }
+
+    /// Sets the contrast of the LCD display (0-255)
+    pub fn set_contrast(&mut self, contrast: u8) -> ScreenResult {
+        self.dev.smbus_write_byte_data(Command::SettingCommand as u8, 0x18)?;
+        thread::sleep(Duration::new(0, 10_000));
+        self.dev.smbus_write_byte_data(Command::SettingCommand as u8, contrast)?;
+        thread::sleep(Duration::new(0, 10_000));
+        Ok(())
+    }
+
+    /// Creates a custom character in CGRAM
+    /// location: 0-7 (8 custom characters available)
+    /// char_map: 8 bytes defining the character (5x8 pixels)
+    pub fn create_character(&mut self, location: u8, char_map: &[u8]) -> ScreenResult {
+        if location > 7 {
+            return Ok(());
+        }
+        if char_map.len() < 8 {
+            return Ok(());
+        }
+        
+        let command = (Command::SetCGRamAddr as u8) | (location << 3);
+        self.write_special_cmd(command)?;
+        
+        for i in 0..8 {
+            self.write_byte(char_map[i])?;
+        }
+        
+        self.home()
+    }
+
+    /// Scrolls the display left
+    pub fn scroll_display_left(&mut self) -> ScreenResult {
+        self.write_special_cmd((Command::CursorShift as u8) | (MoveType::Display as u8) | (MoveDirection::Left as u8))
+    }
+
+    /// Scrolls the display right
+    pub fn scroll_display_right(&mut self) -> ScreenResult {
+        self.write_special_cmd((Command::CursorShift as u8) | (MoveType::Display as u8) | (MoveDirection::Right as u8))
+    }
+
+    /// Moves cursor left without changing display
+    pub fn cursor_left(&mut self) -> ScreenResult {
+        self.write_special_cmd((Command::CursorShift as u8) | (MoveType::Cursor as u8) | (MoveDirection::Left as u8))
+    }
+
+    /// Moves cursor right without changing display
+    pub fn cursor_right(&mut self) -> ScreenResult {
+        self.write_special_cmd((Command::CursorShift as u8) | (MoveType::Cursor as u8) | (MoveDirection::Right as u8))
+    }
+
+    /// Turns on autoscroll - display scrolls when text reaches edge
+    pub fn autoscroll_on(&mut self) -> ScreenResult {
+        self.write_special_cmd((Command::EntryModeSet as u8) | (EntryMode::Left as u8) | (EntryShift::Increment as u8))
+    }
+
+    /// Turns off autoscroll
+    pub fn autoscroll_off(&mut self) -> ScreenResult {
+        self.write_special_cmd((Command::EntryModeSet as u8) | (EntryMode::Left as u8) | (EntryShift::Decrement as u8))
+    }
+
+    /// Sets text flow direction to left-to-right
+    pub fn left_to_right(&mut self) -> ScreenResult {
+        self.write_special_cmd((Command::EntryModeSet as u8) | (EntryMode::Left as u8))
+    }
+
+    /// Sets text flow direction to right-to-left
+    pub fn right_to_left(&mut self) -> ScreenResult {
+        self.write_special_cmd((Command::EntryModeSet as u8) | (EntryMode::Right as u8))
     }
 }
 

@@ -500,6 +500,111 @@ impl Screen {
         
         self.home()
     }
+
+    /// Sets the entry mode for text display (left-to-right or right-to-left)
+    ///
+    /// # Arguments
+    /// * `mode` - The entry mode direction (Left or Right)
+    ///
+    /// # Example
+    /// ```no_run
+    /// # use qwiic_lcd_rs::*;
+    /// # let mut screen = Screen::new(ScreenConfig::default(), "/dev/i2c-1", 0x72).unwrap();
+    /// screen.set_entry_mode(EntryMode::Left).unwrap(); // Text flows left-to-right
+    /// screen.set_entry_mode(EntryMode::Right).unwrap(); // Text flows right-to-left
+    /// ```
+    pub fn set_entry_mode(&mut self, mode: EntryMode) -> ScreenResult {
+        let command = Command::EntryModeSet as u8 | mode as u8 | EntryShift::Increment as u8;
+        self.write_special_cmd(command)
+    }
+
+    /// Sets the entry shift behavior when displaying text
+    ///
+    /// # Arguments
+    /// * `shift` - The shift direction (Increment or Decrement)
+    ///
+    /// # Example
+    /// ```no_run
+    /// # use qwiic_lcd_rs::*;
+    /// # let mut screen = Screen::new(ScreenConfig::default(), "/dev/i2c-1", 0x72).unwrap();
+    /// screen.set_entry_shift(EntryShift::Increment).unwrap(); // Cursor moves forward
+    /// screen.set_entry_shift(EntryShift::Decrement).unwrap(); // Cursor moves backward
+    /// ```
+    pub fn set_entry_shift(&mut self, shift: EntryShift) -> ScreenResult {
+        let command = Command::EntryModeSet as u8 | EntryMode::Left as u8 | shift as u8;
+        self.write_special_cmd(command)
+    }
+
+    /// Shifts the cursor left or right
+    ///
+    /// # Arguments
+    /// * `direction` - The direction to shift (Left or Right)
+    ///
+    /// # Example
+    /// ```no_run
+    /// # use qwiic_lcd_rs::*;
+    /// # let mut screen = Screen::new(ScreenConfig::default(), "/dev/i2c-1", 0x72).unwrap();
+    /// screen.shift_cursor(MoveDirection::Right).unwrap(); // Move cursor right
+    /// screen.shift_cursor(MoveDirection::Left).unwrap(); // Move cursor left
+    /// ```
+    pub fn shift_cursor(&mut self, direction: MoveDirection) -> ScreenResult {
+        let command = Command::CursorShift as u8 | MoveType::Cursor as u8 | direction as u8;
+        self.write_special_cmd(command)
+    }
+
+    /// Shifts the display left or right without moving the cursor
+    ///
+    /// # Arguments
+    /// * `direction` - The direction to shift (Left or Right)
+    ///
+    /// # Example
+    /// ```no_run
+    /// # use qwiic_lcd_rs::*;
+    /// # let mut screen = Screen::new(ScreenConfig::default(), "/dev/i2c-1", 0x72).unwrap();
+    /// screen.shift_display(MoveDirection::Right).unwrap(); // Shift display right
+    /// screen.shift_display(MoveDirection::Left).unwrap(); // Shift display left
+    /// ```
+    pub fn shift_display(&mut self, direction: MoveDirection) -> ScreenResult {
+        let command = Command::CursorShift as u8 | MoveType::Display as u8 | direction as u8;
+        self.write_special_cmd(command)
+    }
+
+    /// Sets the backlight state (on or off)
+    ///
+    /// # Arguments
+    /// * `state` - The backlight state (On or Off)
+    ///
+    /// # Example
+    /// ```no_run
+    /// # use qwiic_lcd_rs::*;
+    /// # let mut screen = Screen::new(ScreenConfig::default(), "/dev/i2c-1", 0x72).unwrap();
+    /// screen.set_backlight_state(Backlight::Off).unwrap(); // Turn backlight off
+    /// screen.set_backlight_state(Backlight::On).unwrap(); // Turn backlight on
+    /// ```
+    pub fn set_backlight_state(&mut self, state: Backlight) -> ScreenResult {
+        match state {
+            Backlight::On => self.change_backlight(255, 255, 255),
+            Backlight::Off => self.change_backlight(0, 0, 0),
+        }
+    }
+
+    /// Configures the bit mode of the display (4-bit or 8-bit)
+    ///
+    /// # Arguments
+    /// * `mode` - The bit mode (B4 or B8)
+    ///
+    /// # Example
+    /// ```no_run
+    /// # use qwiic_lcd_rs::*;
+    /// # let mut screen = Screen::new(ScreenConfig::default(), "/dev/i2c-1", 0x72).unwrap();
+    /// screen.configure_bit_mode(BitMode::B8).unwrap(); // Set to 8-bit mode
+    /// screen.configure_bit_mode(BitMode::B4).unwrap(); // Set to 4-bit mode
+    /// ```
+    pub fn configure_bit_mode(&mut self, mode: BitMode) -> ScreenResult {
+        // Configure function set with bit mode, 2-line display, and 5x8 font
+        let command = Command::FunctionSet as u8 | mode as u8 | 0x08 | 0x00;
+        self.write_special_cmd(command)
+    }
     
     /// Retry I2C write byte operation
     fn retry_i2c_write_byte(&mut self, command: u8) -> ScreenResult {

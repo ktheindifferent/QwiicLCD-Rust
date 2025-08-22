@@ -141,6 +141,70 @@ fn main() -> Result<(), QwiicLcdError> {
 }
 ```
 
+## Advanced Features
+
+The library now supports all LCD control features through the previously unused enums:
+
+### Entry Mode and Shift Control
+```rust
+// Control text entry direction
+screen.set_entry_mode(EntryMode::Left).unwrap();  // Text flows left-to-right (default)
+screen.set_entry_mode(EntryMode::Right).unwrap(); // Text flows right-to-left
+
+// Control cursor advancement
+screen.set_entry_shift(EntryShift::Increment).unwrap(); // Cursor moves forward
+screen.set_entry_shift(EntryShift::Decrement).unwrap(); // Cursor moves backward
+```
+
+### Cursor and Display Shifting
+```rust
+// Shift cursor without changing display
+screen.shift_cursor(MoveDirection::Right).unwrap();
+screen.shift_cursor(MoveDirection::Left).unwrap();
+
+// Shift entire display (useful for scrolling text)
+screen.shift_display(MoveDirection::Right).unwrap();
+screen.shift_display(MoveDirection::Left).unwrap();
+```
+
+### Backlight Control
+```rust
+// Simple on/off control
+screen.set_backlight_state(Backlight::On).unwrap();
+screen.set_backlight_state(Backlight::Off).unwrap();
+
+// RGB color control (existing method)
+screen.change_backlight(255, 0, 0).unwrap(); // Red
+screen.change_backlight(0, 255, 0).unwrap(); // Green
+screen.change_backlight(0, 0, 255).unwrap(); // Blue
+```
+
+### Display Configuration
+```rust
+// Set contrast level (0-255)
+screen.set_contrast(128).unwrap(); // Medium contrast
+screen.set_contrast(255).unwrap(); // Maximum contrast
+
+// Configure bit mode (4-bit or 8-bit communication)
+screen.configure_bit_mode(BitMode::B8).unwrap(); // 8-bit mode
+screen.configure_bit_mode(BitMode::B4).unwrap(); // 4-bit mode
+```
+
+### Custom Characters
+```rust
+// Define custom character patterns (8 bytes, 5x8 pixels)
+let heart = [0x00, 0x0A, 0x1F, 0x1F, 0x0E, 0x04, 0x00, 0x00];
+let smiley = [0x00, 0x00, 0x0A, 0x00, 0x11, 0x0E, 0x00, 0x00];
+
+// Create custom characters (locations 0-7)
+screen.create_character(0, heart).unwrap();
+screen.create_character(1, smiley).unwrap();
+
+// Display custom characters
+screen.write_byte(0).unwrap(); // Display heart
+screen.write_byte(1).unwrap(); // Display smiley
+```
+
 ## References
 
 * https://github.com/sparkfun/Qwiic_SerLCD_Py/blob/main/qwiic_serlcd.py
